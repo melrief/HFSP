@@ -19,13 +19,13 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.mapreduce.TaskType;
 
-public class JobAddedListener extends JobInProgressListener {
+public class HFSPJIPListener extends JobInProgressListener {
 
-  private final static Log LOG = LogFactory.getLog(JobAddedListener.class);
+  private final static Log LOG = LogFactory.getLog(HFSPJIPListener.class);
 
   private HFSPScheduler scheduler;
 
-  public JobAddedListener(HFSPScheduler scheduler) {
+  public HFSPJIPListener(HFSPScheduler scheduler) {
     this.scheduler = scheduler;
   }
 
@@ -42,7 +42,8 @@ public class JobAddedListener extends JobInProgressListener {
   }
 
   @Override
-  public void jobRemoved(JobInProgress job) {
+  public void jobRemoved(JobInProgress jip) {
+    this.scheduler.removeJobIfCompleted(jip);
   }
 
   @Override

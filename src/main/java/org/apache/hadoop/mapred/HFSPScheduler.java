@@ -61,7 +61,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
   static {
     Configuration.addDefaultResource("hfsp-scheduler.xml");
   }
-  
+
   public static final String PREFIX_KEYNAME = "mapred.hfsp-scheduler.";
   public static final String TRAIN_MAP_SLOTS_KEYNAME = PREFIX_KEYNAME
       + "train-map-slots";
@@ -90,7 +90,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
   // Maximum locality delay when auto-computing locality delays
   private static final long MAX_AUTOCOMPUTED_LOCALITY_DELAY = 15000;
 
-    /*private*/ final static Log LOG = LogFactory.getLog(HFSPScheduler.class);
+  /* private */final static Log LOG = LogFactory.getLog(HFSPScheduler.class);
 
   /** Utility for iterate over maps and reduces */
   public final static TaskType[] TASK_TYPES = new TaskType[] { TaskType.MAP,
@@ -117,7 +117,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
 
   /** The object responsible for the configuration of the scheduler */
   protected ConfigurationManager<HFSPScheduler> configurationManager;
-  
+
   /** Default task duration when no job has been trained */
   private long initialMapTaskDuration;
 
@@ -184,7 +184,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
   private TreeMap<JobDurationInfo, JobInProgress> sizeBasedReduceJobsQueue;
 
   /** Top-level JobInProgress listener, this add new jobs to the scheduler */
-  protected JobAddedListener jobAddedListener;
+  protected HFSPJIPListener jobInProgressListener;
 
   /** Retrieve the map JobInProgress from the JobID */
   public Map<JobID, JobInProgress> jIDToJIP;
@@ -232,7 +232,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
 
   /** Preemption strategy */
   PreemptionStrategy preemptionStrategy;
-  
+
   /**
    * Object that encapsulate utilities for
    * {@link HFSPScheduler#assignTasks(TaskTracker)}
@@ -255,6 +255,13 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
     public JobInfo() {
       this.lastMapLocalityLevel = LocalityLevel.NODE;
     }
+
+    @Override
+    public String toString() {
+      return "JobLocalityInfo(lastMapLocalityLevel: " + this.lastMapLocalityLevel +
+             ", timeWaitedForLocalMap: " + this.timeWaitedForLocalMap +
+             ", skippedAtLastHeartbeat: " + this.skippedAtLastHeartbeat + ")";            
+    }
   }
 
   /** {@link FairScheduler#infos} */
@@ -266,61 +273,64 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
   /** If the delay scheduling is active or not */
   private boolean delayEnabled;
 
-  /** Default constructor 
-   * @throws InvocationTargetException 
-   * @throws IllegalAccessException 
-   * @throws InstantiationException 
-   * @throws IllegalArgumentException */
-  public HFSPScheduler() throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
+  /**
+   * Default constructor
+   * 
+   * @throws InvocationTargetException
+   * @throws IllegalAccessException
+   * @throws InstantiationException
+   * @throws IllegalArgumentException
+   */
+  public HFSPScheduler() throws IllegalArgumentException,
+      InstantiationException, IllegalAccessException, InvocationTargetException {
     this(new Clock(), false);
   }
 
-  /** Constructor to be used for testing/debugging 
-   * @throws InvocationTargetException 
-   * @throws IllegalAccessException 
-   * @throws InstantiationException 
-   * @throws IllegalArgumentException */
-  public HFSPScheduler(Clock clock, boolean mockMode) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
+  /**
+   * Constructor to be used for testing/debugging
+   * 
+   * @throws InvocationTargetException
+   * @throws IllegalAccessException
+   * @throws InstantiationException
+   * @throws IllegalArgumentException
+   */
+  public HFSPScheduler(Clock clock, boolean mockMode)
+      throws IllegalArgumentException, InstantiationException,
+      IllegalAccessException, InvocationTargetException {
     super();
     this.clock = clock;
     this.mockMode = mockMode;
-    
+
     // Configure the configuration manager
     this.configurationManager = ConfigurationManager.createFor(this);
-    
+
     // this.numSlotsForMapTrain = conf.getInt(TRAIN_MAP_SLOTS_KEYNAME, 0);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Integer
-      , TRAIN_MAP_SLOTS_KEYNAME
-      , "number of slots assigned to the map train phase"
-      , 0
-      , new Configurator<Integer, HFSPScheduler>() {
+    this.configurationManager.addConfiguratorFor(FieldType.Integer,
+        TRAIN_MAP_SLOTS_KEYNAME,
+        "number of slots assigned to the map train phase", 0,
+        new Configurator<Integer, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Integer value) {
-            obj.numSlotsForMapTrain = value;  
+            obj.numSlotsForMapTrain = value;
           }
-      });
-    
+        });
+
     // this.numSlotsForReduceTrain = conf.getInt(TRAIN_REDUCE_SLOTS_KEYNAME, 0);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Integer
-      , TRAIN_REDUCE_SLOTS_KEYNAME
-      , "number of slots assigned to the reduce train phase"
-      , 0
-      , new Configurator<Integer, HFSPScheduler>() {
+    this.configurationManager.addConfiguratorFor(FieldType.Integer,
+        TRAIN_REDUCE_SLOTS_KEYNAME,
+        "number of slots assigned to the reduce train phase", 0,
+        new Configurator<Integer, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Integer value) {
-            obj.numSlotsForReduceTrain = value;  
+            obj.numSlotsForReduceTrain = value;
           }
-      });
-    
+        });
+
     // this.numTasksForMapTrain = conf.getInt(TRAINER_MIN_MAPS_KEYNAME, 2);
     // this.numMapTrainSlotsForJob = conf.getInt(TRAINER_MIN_MAPS_KEYNAME, 2);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Integer
-      , TRAINER_MIN_MAPS_KEYNAME
-      , "jobs with a number of maps smaller than this avoid the train " +
-      	"and their size  is set to the smallest possible"
-      , 2
-      , new Configurator<Integer, HFSPScheduler>() {
+    this.configurationManager.addConfiguratorFor(FieldType.Integer,
+        TRAINER_MIN_MAPS_KEYNAME,
+        "jobs with a number of maps smaller than this avoid the train "
+            + "and their size  is set to the smallest possible", 2,
+        new Configurator<Integer, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Integer value) {
             obj.numTasksForMapTrain = value;
             obj.numMapTrainSlotsForJob = value;
@@ -328,105 +338,90 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
         });
 
     // this.numTasksForReduceTrain = conf.getInt(TRAIN_REDUCE_SLOTS_KEYNAME, 2);
-    // this.numReduceTrainSlotsForJob = conf.getInt(TRAINER_MIN_REDUCES_KEYNAME, 2);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Integer
-      , TRAINER_MIN_REDUCES_KEYNAME
-      , "jobs with a number of reduces smaller than this avoid the train " +
-        "and their size  is set to the smallest possible"
-      , 2
-      , new Configurator<Integer, HFSPScheduler>() {
+    // this.numReduceTrainSlotsForJob = conf.getInt(TRAINER_MIN_REDUCES_KEYNAME,
+    // 2);
+    this.configurationManager.addConfiguratorFor(FieldType.Integer,
+        TRAINER_MIN_REDUCES_KEYNAME,
+        "jobs with a number of reduces smaller than this avoid the train "
+            + "and their size  is set to the smallest possible", 2,
+        new Configurator<Integer, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Integer value) {
             obj.numTasksForReduceTrain = value;
             obj.numReduceTrainSlotsForJob = value;
           }
         });
-    
+
     // this.delayEnabled = conf.getBoolean(DELAY_KEYNAME, false);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Boolean
-      , DELAY_KEYNAME
-      , "if the scheduler should use or not the delay schedule"
-      , false
-      , new Configurator<Boolean, HFSPScheduler>() {
+    this.configurationManager.addConfiguratorFor(FieldType.Boolean,
+        DELAY_KEYNAME, "if the scheduler should use or not the delay schedule",
+        false, new Configurator<Boolean, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Boolean value) {
             obj.delayEnabled = value;
           }
         });
-    
-    // this.localityDelay = conf.getLong("mapred.fairscheduler.locality.delay", -1);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Long
-      , "mapred.fairscheduler.locality.delay"
-      , "the delay for data-locality mappers (see delay scheduler)"
-      , -1l
-      , new Configurator<Long, HFSPScheduler>() {
+
+    // this.localityDelay = conf.getLong("mapred.fairscheduler.locality.delay",
+    // -1);
+    this.configurationManager.addConfiguratorFor(FieldType.Long,
+        "mapred.fairscheduler.locality.delay",
+        "the delay for data-locality mappers (see delay scheduler)", -1l,
+        new Configurator<Long, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Long value) {
             obj.localityDelay = value;
           }
         });
-    
-    //this.initialMapTaskDuration = conf.getLong(INITIAL_MAP_DURATION, 60000l);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Long
-      , INITIAL_MAP_DURATION
-      , "duration of a map of a not trained job when no jobs are completed"
-      , 60000l
-      , new Configurator<Long, HFSPScheduler>() {
+
+    // this.initialMapTaskDuration = conf.getLong(INITIAL_MAP_DURATION, 60000l);
+    this.configurationManager.addConfiguratorFor(FieldType.Long,
+        INITIAL_MAP_DURATION,
+        "duration of a map of a not trained job when no jobs are completed",
+        60000l, new Configurator<Long, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Long value) {
             obj.initialMapTaskDuration = value;
           }
         });
-    
+
     // this.initialReduceTaskDuration = conf.getLong(INITIAL_REDUCE_DURATION,
-    //                                               60000l);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Long
-      , INITIAL_REDUCE_DURATION
-      , "duration of a reduce of a not trained job when no jobs are completed"
-      , 60000l
-      , new Configurator<Long, HFSPScheduler>() {
-        protected void set(HFSPScheduler obj, Long value) {
-          obj.initialReduceTaskDuration = value;
-        }
-      });
-    
+    // 60000l);
+    this.configurationManager.addConfiguratorFor(FieldType.Long,
+        INITIAL_REDUCE_DURATION,
+        "duration of a reduce of a not trained job when no jobs are completed",
+        60000l, new Configurator<Long, HFSPScheduler>() {
+          protected void set(HFSPScheduler obj, Long value) {
+            obj.initialReduceTaskDuration = value;
+          }
+        });
+
     // this.durationModifierMap = conf.getFloat(DURATION_MODIFIER_MAP, 1.0f);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Float
-      , DURATION_MODIFIER_MAP
-      , "number multiplied to the size of each map"
-      , 1.0f
-      , new Configurator<Float, HFSPScheduler>() {
+    this.configurationManager.addConfiguratorFor(FieldType.Float,
+        DURATION_MODIFIER_MAP, "number multiplied to the size of each map",
+        1.0f, new Configurator<Float, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Float value) {
             obj.durationModifierMap = value;
           }
         });
-    
-    // this.durationModifierReduce = conf.getFloat(DURATION_MODIFIER_REDUCE, 1.0f);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Float
-      , DURATION_MODIFIER_REDUCE
-      , "number multiplied to the size of each reduce"
-      , 1.0f
-      , new Configurator<Float, HFSPScheduler>() {
+
+    // this.durationModifierReduce = conf.getFloat(DURATION_MODIFIER_REDUCE,
+    // 1.0f);
+    this.configurationManager.addConfiguratorFor(FieldType.Float,
+        DURATION_MODIFIER_REDUCE,
+        "number multiplied to the size of each reduce", 1.0f,
+        new Configurator<Float, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Float value) {
             obj.durationModifierReduce = value;
           }
         });
 
     // this.updateInterval = conf.getLong(UPDATE_INTERVAL_KEYNAME, 5000);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Long
-      , UPDATE_INTERVAL_KEYNAME
-      , "after how much time the internal state of HFSP is updated"
-      , 5000l
-      , new Configurator<Long, HFSPScheduler>() {
+    this.configurationManager.addConfiguratorFor(FieldType.Long,
+        UPDATE_INTERVAL_KEYNAME,
+        "after how much time the internal state of HFSP is updated", 5000l,
+        new Configurator<Long, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Long value) {
             obj.updateInterval = value;
           }
         });
-    
+
     // Trainer
     try {
       this.trainer = new BrokerTrainer(this, conf, this.clock);
@@ -456,24 +451,23 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
 
     this.preemptionStrategy = this.loadPreemptionStrategyInstance(conf);
 
-    
-//    Configuration conf = getConf();
-//
-//    this.numSlotsForMapTrain = conf.getInt(TRAIN_MAP_SLOTS_KEYNAME, 0);
-//    this.numSlotsForReduceTrain = conf.getInt(TRAIN_REDUCE_SLOTS_KEYNAME, 0);
-//    this.numMapTrainSlotsForJob = conf.getInt(TRAINER_MIN_MAPS_KEYNAME, 2);
-//    this.numReduceTrainSlotsForJob = conf
-//        .getInt(TRAINER_MIN_REDUCES_KEYNAME, 2);
-    
-    
-//    this.delayEnabled = conf.getBoolean(DELAY_KEYNAME, false);
-//    this.initialMapTaskDuration = conf.getLong(INITIAL_MAP_DURATION, 60000l);
-//    this.initialReduceTaskDuration = conf.getLong(INITIAL_REDUCE_DURATION,
-//        60000l);
-//    this.durationModifierMap = conf.getFloat(DURATION_MODIFIER_MAP, 1.0f);
-//    this.durationModifierReduce = conf.getFloat(DURATION_MODIFIER_REDUCE, 1.0f);
-//    this.numTasksForMapTrain = conf.getInt(TRAINER_MIN_MAPS_KEYNAME, 2);
-//    this.numTasksForReduceTrain = conf.getInt(TRAIN_REDUCE_SLOTS_KEYNAME, 2);
+    // Configuration conf = getConf();
+    //
+    // this.numSlotsForMapTrain = conf.getInt(TRAIN_MAP_SLOTS_KEYNAME, 0);
+    // this.numSlotsForReduceTrain = conf.getInt(TRAIN_REDUCE_SLOTS_KEYNAME, 0);
+    // this.numMapTrainSlotsForJob = conf.getInt(TRAINER_MIN_MAPS_KEYNAME, 2);
+    // this.numReduceTrainSlotsForJob = conf
+    // .getInt(TRAINER_MIN_REDUCES_KEYNAME, 2);
+
+    // this.delayEnabled = conf.getBoolean(DELAY_KEYNAME, false);
+    // this.initialMapTaskDuration = conf.getLong(INITIAL_MAP_DURATION, 60000l);
+    // this.initialReduceTaskDuration = conf.getLong(INITIAL_REDUCE_DURATION,
+    // 60000l);
+    // this.durationModifierMap = conf.getFloat(DURATION_MODIFIER_MAP, 1.0f);
+    // this.durationModifierReduce = conf.getFloat(DURATION_MODIFIER_REDUCE,
+    // 1.0f);
+    // this.numTasksForMapTrain = conf.getInt(TRAINER_MIN_MAPS_KEYNAME, 2);
+    // this.numTasksForReduceTrain = conf.getInt(TRAIN_REDUCE_SLOTS_KEYNAME, 2);
 
     // lookup utilities
     this.taskTrackers = new HashMap<String, TaskTrackerStatus>();
@@ -484,8 +478,8 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
         .synchronizedMap(new HashMap<JobID, JobDurationInfo>());
 
     // job added listener
-    this.jobAddedListener = new JobAddedListener(this);
-    this.taskTrackerManager.addJobInProgressListener(jobAddedListener);
+    this.jobInProgressListener = new HFSPJIPListener(this);
+    this.taskTrackerManager.addJobInProgressListener(jobInProgressListener);
 
     // job initializer
     // if (!this.mockMode)
@@ -515,22 +509,22 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
     this.progressManager = new ProgressManager(this.cluster, this.scheduler);
 
     // Trainer
-//    try {
-//      this.trainer = new BrokerTrainer(this, conf, this.clock);
-//    } catch (Exception e) {
-//      throw new RuntimeException();
-//    }
+    // try {
+    // this.trainer = new BrokerTrainer(this, conf, this.clock);
+    // } catch (Exception e) {
+    // throw new RuntimeException();
+    // }
 
     // Update thread
     // this.updateInterval = conf.getLong(UPDATE_INTERVAL_KEYNAME, 5000);
     this.updateThread = new UpdateThread(this);
-    if (!this.mockMode) {
-      this.updateThread.start();
-    } else {
-      this.delayEnabled = false; // problem with delay enabled in mock mode
-    }
+    // if (!this.mockMode) {
+    // this.updateThread.start();
+    // } else {
+    // this.delayEnabled = false; // problem with delay enabled in mock mode
+    // }
 
-//    localityDelay = conf.getLong("mapred.fairscheduler.locality.delay", -1);
+    // localityDelay = conf.getLong("mapred.fairscheduler.locality.delay", -1);
     if (localityDelay == -1)
       autoComputeLocalityDelay = true; // Compute from heartbeat interval
 
@@ -573,15 +567,14 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
       LOG.debug(HFSPScheduler.class + " initialized, forcing the first update");
     }
 
-    if (!this.mockMode)
-      this.update();
+    // if (!this.mockMode)
+    this.update();
   }
 
   private PreemptionStrategy loadPreemptionStrategyInstance(Configuration conf) {
-    Class<? extends PreemptionStrategy> preemptionStrategyClass
-                = conf.getClass(PREEMPTION_STRATEGY_CLASS_KEY,
-                                NoPreemption.class,
-                                PreemptionStrategy.class);
+    Class<? extends PreemptionStrategy> preemptionStrategyClass = conf
+        .getClass(PREEMPTION_STRATEGY_CLASS_KEY, NoPreemption.class,
+            PreemptionStrategy.class);
     return ReflectionUtils.newInstance(preemptionStrategyClass, conf);
   }
 
@@ -591,8 +584,8 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
     // if (this.sizeBasedScheduler != null) {
     // this.sizeBasedScheduler.terminate();
     // }
-    if (jobAddedListener != null) {
-      taskTrackerManager.removeJobInProgressListener(jobAddedListener);
+    if (jobInProgressListener != null) {
+      taskTrackerManager.removeJobInProgressListener(jobInProgressListener);
     }
     if (eagerTaskInitializationListener != null) {
       taskTrackerManager
@@ -641,6 +634,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
     Interval interval = new Interval(time / 2);
     this.progressManager.update(interval);
     this.lastEvent = newLastEvent;
+    this.cleanSizeBasedQueues();
     this.sortSizeBasedQueues();
   }
 
@@ -725,6 +719,8 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
   @Override
   public List<Task> assignTasks(TaskTracker taskTracker) throws IOException {
 
+    this.update();
+
     taskHelper.init(taskTracker.getStatus());
 
     // Update time waited for local maps for jobs skipped on last heartbeat
@@ -758,7 +754,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
       synchronized (jobQueue) {
         sizeBasedJobs.putAll(jobQueue);
       }
-      
+
       TreeMap<JobDurationInfo, TaskStatuses> taskStatusesSizeBased = helper.taskStatusesSizeBased;
 
       if (helper.doTrainScheduling) {
@@ -775,6 +771,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
     if (LOG.isDebugEnabled()) {
       taskHelper.logInfos(LOG);
     }
+    
     return (List<Task>) taskHelper.result.clone();
   }
 
@@ -926,8 +923,8 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
           TaskAttemptID tAID = toResume.getTaskID();
           JobInProgress rJIP = this.taskTrackerManager.getJob(tAID.getTaskID()
               .getJobID());
-	  TaskInProgress tip = rJIP.getTaskInProgress(tAID.getTaskID());
-	  if (this.preemptionStrategy.resume(tip, toResume)) {
+          TaskInProgress tip = rJIP.getTaskInProgress(tAID.getTaskID());
+          if (this.preemptionStrategy.resume(tip, toResume)) {
             taskHelper.resume(tAID, Phase.SIZE_BASED);
             pendingResumableTasks -= 1;
           } else {
@@ -944,8 +941,9 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
             LOG.debug("SIZEBASED(" + jip.getJobID() + ":" + type + "):"
                 + " cannot obtain slot for new task on "
                 + taskHelper.ttStatus.getTrackerName() + " (#pendingNew: "
-                + pendingNewTasks + ", #pendingResumable:"
-                + pendingResumableTasks + ")");
+                + pendingNewTasks + ", #pendingResumable: "
+                + pendingResumableTasks + ", #free_" + type + "_slots: " 
+                + helper.currAvailableSlots + ")");
             break;
           }
 
@@ -973,7 +971,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
           LOG.debug("TRAIN(" + jip.getJobID() + ":" + type + "): "
               + "job is not ready for scheduling (" + "status: "
               + JobStatus.getJobRunState(jip.getStatus().getRunState())
-		    + ", mapProgress: " + jip.getStatus().mapProgress()
+              + ", mapProgress: " + jip.getStatus().mapProgress()
               + ", reduceProgress: " + jip.getStatus().reduceProgress()
               + ", scheduleReduces: " + jip.scheduleReduces() + ")");
         }
@@ -1047,8 +1045,8 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
    * @param numToSkip
    *          number of slots on non-local
    * 
-   * @return number of tasks preemped in the cluster for jip. The first elem
-   *         of the tuple is the number of tasks preempted for new tasks, the 
+   * @return number of tasks preemped in the cluster for jip. The first elem of
+   *         the tuple is the number of tasks preempted for new tasks, the
    *         second in the number of tasks preempted for tasks to be resumed
    */
   private Pair<Integer, Integer> claimSlots(HelperForType helper,
@@ -1175,21 +1173,21 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
           TaskInProgress pTIP = pJIP.getTaskInProgress(pTAID.getTaskID());
 
           if (type == TaskType.REDUCE) {
-//            if (this.eagerPreemption == PreemptionType.KILL
-//                && pTIP.killTask(pTAID, false)) {
-//              if (missingResumableSlots > 0)
-//                missingResumableSlots -= 1;
-//              else
-//                numTasksToPreempt -= 1;
-//              numSuspendedOnThisTT += 1;
-//              if (jdi == null) {
-//                taskHelper.kill(pTAID, jip.getJobID(), phase);
-//              } else {
-//                taskHelper.kill(pTAID, jip.getJobID(), phase, nextSBJ.getKey(),
-//                    jdi);
-//              }
-//            } else if (this.preemptionStrategy.isPreemptionActive()
-                //&& this.canBeSuspended(pTS) && pTIP.suspendTaskAttempt(pTAID)) {
+            // if (this.eagerPreemption == PreemptionType.KILL
+            // && pTIP.killTask(pTAID, false)) {
+            // if (missingResumableSlots > 0)
+            // missingResumableSlots -= 1;
+            // else
+            // numTasksToPreempt -= 1;
+            // numSuspendedOnThisTT += 1;
+            // if (jdi == null) {
+            // taskHelper.kill(pTAID, jip.getJobID(), phase);
+            // } else {
+            // taskHelper.kill(pTAID, jip.getJobID(), phase, nextSBJ.getKey(),
+            // jdi);
+            // }
+            // } else if (this.preemptionStrategy.isPreemptionActive()
+            // && this.canBeSuspended(pTS) && pTIP.suspendTaskAttempt(pTAID)) {
             if (this.preemptionStrategy.isPreemptionActive()
                 && this.preemptionStrategy.canBePreempted(pTS)
                 && this.preemptionStrategy.preempt(pTIP, pTS)) {
@@ -1322,7 +1320,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
     this.sortSizeBasedQueue(type);
 
     LOG.info("UPDATE_SIZE " + jip.getJobID() + ":" + type + " "
-          + (prevJDI == null ? "None" : prevJDI) + " -> " + newJDI);
+        + (prevJDI == null ? "None" : prevJDI) + " -> " + newJDI);
 
     return true;
   }
@@ -1340,23 +1338,26 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
     int numTaskTrackers = clusterStatus.getTaskTrackers();
     Task task = null;
     if (isMap) {
-        LocalityLevel localityLevel = this.getAllowedLocalityLevel(job
-								 , currentTime);
-        switch (localityLevel) {
-	case NODE:
-            task = job.obtainNewNodeLocalMapTask(tts, numTaskTrackers,
-						 ttm.getNumberOfUniqueHosts());
-	case RACK:
-            task = job.obtainNewNodeOrRackLocalMapTask(tts, numTaskTrackers,
-						       ttm.getNumberOfUniqueHosts());
-	default:
-            task = job.obtainNewMapTask(tts, numTaskTrackers,
-					ttm.getNumberOfUniqueHosts());
-        }
-      } else {
-        task = job.obtainNewReduceTask(tts, numTaskTrackers,
+      LocalityLevel localityLevel = this.getAllowedLocalityLevel(job,
+          currentTime);
+      switch (localityLevel) {
+      case NODE:
+        task = job.obtainNewNodeLocalMapTask(tts, numTaskTrackers,
             ttm.getNumberOfUniqueHosts());
+        break;
+      case RACK:
+        task = job.obtainNewNodeOrRackLocalMapTask(tts, numTaskTrackers,
+            ttm.getNumberOfUniqueHosts());
+        break;
+      default:
+        task = job.obtainNewMapTask(tts, numTaskTrackers,
+            ttm.getNumberOfUniqueHosts());
+        break;
       }
+    } else {
+      task = job.obtainNewReduceTask(tts, numTaskTrackers,
+          ttm.getNumberOfUniqueHosts());
+    }
 
     if (this.delayEnabled && isMap && task != null) {
       this.updateLastMapLocalityLevel(job, task, tts);
@@ -1390,6 +1391,8 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
         tracker);
     info.lastMapLocalityLevel = localityLevel;
     info.timeWaitedForLocalMap = 0;
+    LOG.debug(job.getJobID() + " set lastLocalityLevel=" + info.lastMapLocalityLevel
+        + " timeWaitedForLocalMap=" + 0);
   }
 
   /**
@@ -1417,7 +1420,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
     }
     if (job.nonLocalMaps.size() > 0) { // Job doesn't have locality information
       LOG.debug(job.getJobID() + " doesn't have locality information ("
-          + "job.nonLocalMaps.size() > 0");
+          + "job.nonLocalMaps.size() > 0)");
       return LocalityLevel.ANY;
     }
 
@@ -1466,8 +1469,8 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
 
   /** Number of pending tasks without suspended tasks */
   int getNumPendingNewTasks(JobInProgress jip, TaskType type) {
-      return this.getNumPendingTasks(jip, type) -
-	  this.preemptionStrategy.getPreemptedTasks(jip, type);
+    return this.getNumPendingTasks(jip, type)
+        - this.preemptionStrategy.getPreemptedTasks(jip, type);
   }
 
   /** Number of pending and suspended tasks */
@@ -1494,7 +1497,7 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
     synchronized (jobs) {
       for (JobInProgress job : jobs) {
         acc += this.getNumRunningTasks(job, taskType)
-            //- this.getNumSuspendedTasks(job, taskType);
+        // - this.getNumSuspendedTasks(job, taskType);
             - this.preemptionStrategy.getPreemptedTasks(job, taskType);
       }
     }
@@ -1507,7 +1510,6 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
   /** If there are jobs of the specified type for the specified scheduler */
   public boolean isSchedulingActive(QueueType schedulerType, TaskType taskType) {
     Collection<JobInProgress> jobs = this.getJobs(schedulerType, taskType);
-    final boolean isMap = taskType == TaskType.MAP;
     synchronized (jobs) {
       for (JobInProgress job : jobs) {
         if (this.getNumPendingTasks(job, taskType) > 0)
@@ -1524,12 +1526,6 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
   private boolean isJobReadyForTypeScheduling(JobInProgress jip, TaskType type) {
     return jip.getStatus().getRunState() == JobStatus.RUNNING
         && (type == TaskType.MAP || jip.scheduleReduces());
-  }
-
-  /** Check if the task can be suspended or not in this particular status */
-  @Deprecated
-  private boolean canBeSuspended(TaskStatus status) {
-    return status.getPhase() == TaskStatus.Phase.REDUCE;
   }
 
   /** All the jobs managed by the scheduler */
@@ -1707,6 +1703,15 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
   }
 
   /**
+   * Try to remove the jobs
+   */
+  private void cleanSizeBasedQueues() {
+    for (JobInProgress jip : this.jIDToJIP.values()) {
+      this.removeJobIfCompleted(jip);
+    }
+  }
+  
+  /**
    * Get the maximum map and reduce tasks for the cluster
    * 
    * @see ClusterStatus#getMaxMapTasks()
@@ -1718,7 +1723,8 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
         .getMaxReduceTasks();
   }
 
-  public static void main(String[] args) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
+  public static void main(String[] args) throws IllegalArgumentException,
+      InstantiationException, IllegalAccessException, InvocationTargetException {
     HFSPScheduler scheduler = new HFSPScheduler();
     scheduler.printConfiguration();
   }
@@ -1727,5 +1733,67 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
   public void printConfiguration() {
     System.out.println(this.configurationManager.toString());
     this.trainer.printConfiguration();
+    // this.configurationManager.printXML();
+  }
+  
+  /**
+   * Remove a job if it is completed in both the real and the virtual cluster
+   */
+
+  public boolean removeJobIfCompleted(JobInProgress jip) {
+    if (!jip.isComplete()) {
+      if (LOG.isDebugEnabled()) {
+        JobStatus jobStatus = jip.getStatus();
+        LOG.debug("Cannot remove " + jip + " because is not completed "
+                + "(mapProgress: " + jobStatus.mapProgress() + ","
+                + "reduceProgress: " + jobStatus.reduceProgress() + ")");
+      }
+      return false;
+    }
+    JobID jid = jip.getJobID();
+    JobDurationInfo mapDuration = this.getDuration(jid, TaskType.MAP);
+    if (!mapDuration.isFinished()) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Cannot remove " + jip + " because it's map virtual "
+            + "time is not 0 (mapVirtualTime: " + mapDuration + ")");
+      }
+      return false;
+    }
+      
+    JobDurationInfo reduceDuration = this.getDuration(jid, TaskType.REDUCE);
+    if (!reduceDuration.isFinished()) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Cannot remove " + jip + " because it's reduce virtual "
+            + "time is not 0 (reduceVirtualTime: " + reduceDuration + ")");
+      }
+      return false;
+    }
+    
+    if(this.jIDToMapJDI.containsKey(jid)) {
+      this.jIDToMapJDI.remove(jid);
+    }
+    if (this.jIDToReduceJDI.containsKey(jid)) {
+      this.jIDToReduceJDI.remove(jid);
+    }
+    if (this.jIDToJIP.containsKey(jid)) {
+      this.jIDToJIP.remove(jid);
+    }
+    if (this.infos.containsKey(jid)) {
+      this.infos.remove(jid);      
+    }
+    if (this.sizeBasedMapJobsQueue.containsKey(mapDuration)) {
+      this.sizeBasedMapJobsQueue.remove(mapDuration);
+    }
+    if (this.sizeBasedReduceJobsQueue.containsKey(reduceDuration)) {
+      this.sizeBasedReduceJobsQueue.remove(reduceDuration);
+    }
+    if (this.trainingMapJobs.contains(jip)) {
+      this.trainingMapJobs.remove(jip);
+    }
+    if (this.trainingReduceJobs.contains(jip)) {
+      this.trainingReduceJobs.remove(jip);
+    }
+    
+    return true;
   }
 }
