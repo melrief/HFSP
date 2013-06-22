@@ -20,6 +20,7 @@ import java.lang.reflect.InvocationTargetException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.conf.ConfigurationDescriptionToXMLConverter;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.mapreduce.TaskType;
 
@@ -110,8 +111,8 @@ public class BrokerTrainer extends Configured implements
   }
 
   @Override
-  public void printConfiguration() {
-    this.mapTrainer.printConfiguration();
-    this.reduceTrainer.printConfiguration();
+  public void accept(ConfigurationDescriptionToXMLConverter converter) {
+    this.mapTrainer.accept(converter);
+    this.reduceTrainer.accept(converter);
   }
 }

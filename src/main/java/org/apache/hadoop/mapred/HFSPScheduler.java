@@ -34,11 +34,12 @@ import java.util.TreeSet;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.AcceptConfigurationManagerVisitor;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.ConfigurationManager;
 import org.apache.hadoop.conf.Configurator;
 import org.apache.hadoop.conf.FieldType;
-import org.apache.hadoop.conf.PrintConfiguration;
+import org.apache.hadoop.conf.ConfigurationDescriptionToXMLConverter;
 import org.apache.hadoop.mapred.AssignTasksHelper.HelperForType;
 import org.apache.hadoop.mapred.AssignTasksHelper.Phase;
 import org.apache.hadoop.mapred.AssignTasksHelper.TaskStatuses;
@@ -56,7 +57,7 @@ import util.Pair;
  * 
  */
 // FIXME: fix mock mode
-public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
+public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationManagerVisitor {
 
   static {
     Configuration.addDefaultResource("hfsp-scheduler.xml");
@@ -1724,22 +1725,23 @@ public class HFSPScheduler extends TaskScheduler implements PrintConfiguration {
   }
 
   public static void main(String[] args) throws IllegalArgumentException,
-      InstantiationException, IllegalAccessException, InvocationTargetException {
+      InstantiationException, IllegalAccessException, InvocationTargetException
+     ,javax.xml.parsers.ParserConfigurationException {
     HFSPScheduler scheduler = new HFSPScheduler();
-    scheduler.printConfiguration();
+    ConfigurationDescriptionToXMLConverter converter =
+                ConfigurationDescriptionToXMLConverter.newInstance();
+    scheduler.accept(converter);
+    converter.write(System.out);
   }
 
-  @Override
-  public void printConfiguration() {
-    System.out.println(this.configurationManager.toString());
-    this.trainer.printConfiguration();
-    // this.configurationManager.printXML();
+  public void accept(ConfigurationDescriptionToXMLConverter converter) {
+    this.configurationManager.accept(converter);
+    this.trainer.accept(converter);
   }
   
   /**
    * Remove a job if it is completed in both the real and the virtual cluster
    */
-
   public boolean removeJobIfCompleted(JobInProgress jip) {
     if (!jip.isComplete()) {
       if (LOG.isDebugEnabled()) {

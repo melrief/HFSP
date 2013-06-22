@@ -26,6 +26,7 @@ import java.util.Map.Entry;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.ConfigurationDescriptionToXMLConverter;
 import org.apache.hadoop.mapreduce.TaskType;
 
 public class CompletedTasksDurationFactory extends JobDurationInfoFactory {
@@ -177,4 +178,8 @@ public class CompletedTasksDurationFactory extends JobDurationInfoFactory {
     return status.getFinishTime() - status.getStartTime();
   }
 
+//  @Override
+//  public void accept(ConfigurationDescriptionToXMLConverter converter) {
+    // TODO
+//  }
 }

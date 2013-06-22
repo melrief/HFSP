@@ -24,6 +24,7 @@ import java.util.Set;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.conf.ConfigurationDescriptionToXMLConverter;
 import org.apache.hadoop.conf.ConfigurationManager;
 import org.apache.hadoop.conf.Configurator;
 import org.apache.hadoop.conf.Configured;
@@ -186,14 +187,13 @@ public class CompletedTasksTrainer extends Configured implements
   }
   
   @Override
-  public void printConfiguration() {
-    System.out.println(this.cm.toString());
+  public void accept(ConfigurationDescriptionToXMLConverter converter) {
+    this.cm.accept(converter);
   }
 
-  public static void main(String[] args) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
-    CompletedTasksTrainer mapTrainer = new CompletedTasksTrainer(null, TaskType.MAP);
-    CompletedTasksTrainer reduceTrainer = new CompletedTasksTrainer(null, TaskType.REDUCE);
-    mapTrainer.printConfiguration();
-    reduceTrainer.printConfiguration();
-  }
+//  public static void main(String[] args) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
+//    CompletedTasksTrainer mapTrainer = new CompletedTasksTrainer(null, TaskType.MAP);
+//    CompletedTasksTrainer reduceTrainer = new CompletedTasksTrainer(null, TaskType.REDUCE);
+//
+//  }
 }

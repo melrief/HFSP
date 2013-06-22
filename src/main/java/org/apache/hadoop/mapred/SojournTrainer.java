@@ -22,6 +22,7 @@ import java.util.Map;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.conf.ConfigurationDescriptionToXMLConverter;
 import org.apache.hadoop.conf.ConfigurationManager;
 import org.apache.hadoop.conf.Configurator;
 import org.apache.hadoop.conf.Configured;
@@ -263,7 +264,7 @@ public class SojournTrainer extends Configured
   }
 
   @Override
-  public void printConfiguration() {
-    System.out.println(this.configurationManager.toString());
+  public void accept(ConfigurationDescriptionToXMLConverter converter) {
+    this.configurationManager.accept(converter);
   }
 }

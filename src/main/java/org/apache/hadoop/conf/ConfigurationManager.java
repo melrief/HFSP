@@ -1,6 +1,7 @@
 package org.apache.hadoop.conf;
 
 import java.lang.reflect.InvocationTargetException;
+import java.io.File;
 import java.util.HashSet;
 
 /**
@@ -53,6 +54,13 @@ public class ConfigurationManager<O> {
     return new ConfigurationManager<O>(toConfigure);
   }
   
+  public void accept(ConfigurationDescriptionToXMLConverter converter) {
+    for (ConfiguratorConfiguration<?, O> configuratorConfiguration 
+                    : this.configuratorConfigurations) {
+        converter.addConfigurationDescription(configuratorConfiguration.configuration);
+    }
+  }
+
   public void configure(Configuration conf) {
     for (ConfiguratorConfiguration<?, O> configuratorConfiguration : this.configuratorConfigurations) {
       configuratorConfiguration.configure(this.toConfigure, conf);
