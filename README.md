@@ -1,4 +1,4 @@
-# HFSP
+# Hadoop Fair Sojourn Protocol (HFSP)
 
 The Hadoop Fair Sojourn Protocol Scheduler is a size-based scheduler for
 Hadoop.
