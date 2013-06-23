@@ -15,18 +15,15 @@
  */
 package org.apache.hadoop.mapred;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Map.Entry;
+import java.util.Random;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.ConfigurationDescriptionToXMLConverter;
 import org.apache.hadoop.mapreduce.TaskType;
 
 public class CompletedTasksDurationFactory extends JobDurationInfoFactory {
@@ -36,19 +33,9 @@ public class CompletedTasksDurationFactory extends JobDurationInfoFactory {
 
   private HFSPScheduler scheduler;
 
-  private float errorOnMapEstimation;
-
-  private long seed;
-
-  private Random random;
-
-  public CompletedTasksDurationFactory(HFSPScheduler scheduler,
-      float errorOnMapEstimation, long seed) {
+  public CompletedTasksDurationFactory(HFSPScheduler scheduler) {
     super();
     this.scheduler = scheduler;
-    this.errorOnMapEstimation = errorOnMapEstimation;
-    this.seed = seed;
-    this.random = new Random(this.seed);
   }
 
   public static double sum(Iterable<Double> iter) {
@@ -109,25 +96,12 @@ public class CompletedTasksDurationFactory extends JobDurationInfoFactory {
     long totalDuration = (long) (Math.ceil(sum(completionTimes)
         / completionTimes.size()));
 
-    /* add error to the final estimation */
-    boolean isPos = this.random.nextBoolean();
-    float absError = this.random.nextFloat() * this.errorOnMapEstimation;
-    float error = totalDuration * absError;
-    long totalDurationWithError = 0;
-    if (isPos) {
-      totalDurationWithError = (long) Math.ceil((double) totalDuration + error);
-    } else if (error <= totalDuration) {
-      totalDurationWithError = (long) Math
-          .floor((double) totalDuration - error);
-    }
-
     /* Add virtual progress to each task */
     Map<TaskID, TaskDurationInfo> IDToDuration = new HashMap<TaskID, TaskDurationInfo>();
     for (Entry<TaskID, Double> entry : tIDToVirtualProgress.entrySet()) {
       TaskID taskID = entry.getKey();
       double prog = entry.getValue();
-      TaskDurationInfo tdi = new TaskDurationInfo(taskID,
-          totalDurationWithError);
+      TaskDurationInfo tdi = new TaskDurationInfo(taskID, totalDuration);
       long workDone = (long) Math.ceil(tdi.getTotalDuration() * prog);
       tdi.decrease(workDone);
       IDToDuration.put(taskID, tdi);
@@ -142,16 +116,14 @@ public class CompletedTasksDurationFactory extends JobDurationInfoFactory {
           + " completed " + type + " tasks with completion times: "
           + completionTimes + " and virtual progress for each task: "
           + tIDToVirtualProgress + " => remaining duration for each task: "
-          + totalDuration + " , absError: " + absError + ", error: " + error
-          + " => final estimation: " + totalDurationWithError
+          + totalDuration + " => final estimation: " + totalDuration
           + " curr virtual progress:" + jobDurationInfo);
     }
 
     TaskID[] taskIDs = new TaskID[tIDToVirtualProgress.size()];
     tIDToVirtualProgress.keySet().toArray(taskIDs);
 
-    return new UniformJobDurationInfo(jip, totalDurationWithError, type,
-        taskIDs);
+    return new UniformJobDurationInfo(jip, totalDuration, type, taskIDs);
 
   }
 
@@ -178,8 +150,8 @@ public class CompletedTasksDurationFactory extends JobDurationInfoFactory {
     return status.getFinishTime() - status.getStartTime();
   }
 
-//  @Override
-//  public void accept(ConfigurationDescriptionToXMLConverter converter) {
-    // TODO
-//  }
+  // @Override
+  // public void accept(ConfigurationDescriptionToXMLConverter converter) {
+  // TODO
+  // }
 }

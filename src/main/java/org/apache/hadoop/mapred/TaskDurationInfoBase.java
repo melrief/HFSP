@@ -18,10 +18,8 @@ package org.apache.hadoop.mapred;
 public abstract class TaskDurationInfoBase {
 
   private boolean running;
-  @SuppressWarnings("deprecation")
   private TaskID taskID;
 
-  @SuppressWarnings("deprecation")
   public TaskDurationInfoBase(final TaskID taskID) {
     this.taskID = taskID;
     this.running = false;
@@ -37,7 +35,6 @@ public abstract class TaskDurationInfoBase {
 
   public abstract boolean isFinished();
 
-  @SuppressWarnings("deprecation")
   public final TaskID getTaskID() {
     return taskID;
   }

@@ -43,49 +43,47 @@ public class CompletedTasksTrainer extends Configured implements
   private Map<JobID, JobDurationInfo> jipToMapDuration;
   private Map<JobID, JobDurationInfo> jipToReduceDuration;
 
-  public CompletedTasksTrainer(JobDurationInfoFactory mapFactory
-                             , TaskType type)
-                                 throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
+  public CompletedTasksTrainer(JobDurationInfoFactory mapFactory, TaskType type)
+      throws IllegalArgumentException, InstantiationException,
+      IllegalAccessException, InvocationTargetException {
     super();
-    
+
     this.jips = new HashSet<JobInProgress>();
     this.jipToMapDuration = new HashMap<JobID, JobDurationInfo>();
     this.jipToReduceDuration = new HashMap<JobID, JobDurationInfo>();
     this.factory = mapFactory;
-    
+
     this.cm = ConfigurationManager.createFor(this);
-    this.cm.addConfiguratorFor(
-        FieldType.Integer
-      , type == TaskType.MAP ? CompletedTasksTrainer.NUM_MAP_COMPLETED_KEY
-                             : CompletedTasksTrainer.NUM_REDUCE_COMPLETED_KEY
-      , "Number of completed mappers needed to calculate the job size"
-      , 2
-      , new Configurator<Integer,CompletedTasksTrainer>() {
-                 protected void set(CompletedTasksTrainer obj, Integer value) {
-                   obj.threshold = value;
-                 }
-        });
-    this.cm.addConfiguratorFor(
-        FieldType.Integer
-      , type == TaskType.MAP ? CompletedTasksTrainer.MIN_MAP_KEY
-                             : CompletedTasksTrainer.MIN_REDUCE_KEY
-      , "Under this number a job is considered small and the size is set to the minimum"
-      , 1
-      , new Configurator<Integer,CompletedTasksTrainer>() {
+    this.cm.addConfiguratorFor(FieldType.Integer,
+        type == TaskType.MAP ? CompletedTasksTrainer.NUM_MAP_COMPLETED_KEY
+            : CompletedTasksTrainer.NUM_REDUCE_COMPLETED_KEY,
+        "Number of completed mappers needed to calculate the job size", 2,
+        new Configurator<Integer, CompletedTasksTrainer>() {
           protected void set(CompletedTasksTrainer obj, Integer value) {
-            obj.minTasks = value;
+            obj.threshold = value;
           }
         });
+    this.cm
+        .addConfiguratorFor(
+            FieldType.Integer,
+            type == TaskType.MAP ? CompletedTasksTrainer.MIN_MAP_KEY
+                : CompletedTasksTrainer.MIN_REDUCE_KEY,
+            "Under this number a job is considered small and the size is set to the minimum",
+            1, new Configurator<Integer, CompletedTasksTrainer>() {
+              protected void set(CompletedTasksTrainer obj, Integer value) {
+                obj.minTasks = value;
+              }
+            });
   }
-  
-  public CompletedTasksTrainer(TaskType type,
-                               Configuration conf,
-                               JobDurationInfoFactory mapFactory) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
+
+  public CompletedTasksTrainer(TaskType type, Configuration conf,
+      JobDurationInfoFactory mapFactory) throws IllegalArgumentException,
+      InstantiationException, IllegalAccessException, InvocationTargetException {
     this(mapFactory, type);
-    
+
     LOG.debug("set threshold: " + threshold + " and minTasks: " + minTasks);
   }
-  
+
   @Override
   public void followJob(JobInProgress jip, TaskType type) {
     this.jips.add(jip);
@@ -167,15 +165,15 @@ public class CompletedTasksTrainer extends Configured implements
 
   public final static String COMPLETED_TASKS_KEY = HFSPScheduler.TRAINER_KEYNAME
       + "completed-tasks";
-  
+
   public static String getNumCompletedKeyFor(TaskType type) {
     return COMPLETED_TASKS_KEY + "." + type.toString().toLowerCase()
-                               + ".num-completed";
+        + ".num-completed";
   }
 
   public static String getMinKeyFor(TaskType type) {
     return type == TaskType.MAP ? HFSPScheduler.TRAINER_MIN_MAPS_KEYNAME
-                                : HFSPScheduler.TRAINER_MIN_REDUCES_KEYNAME;
+        : HFSPScheduler.TRAINER_MIN_REDUCES_KEYNAME;
   }
 
   @Override
@@ -185,15 +183,18 @@ public class CompletedTasksTrainer extends Configured implements
       this.cm.configure(this.getConf());
     }
   }
-  
+
   @Override
   public void accept(ConfigurationDescriptionToXMLConverter converter) {
     this.cm.accept(converter);
   }
 
-//  public static void main(String[] args) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
-//    CompletedTasksTrainer mapTrainer = new CompletedTasksTrainer(null, TaskType.MAP);
-//    CompletedTasksTrainer reduceTrainer = new CompletedTasksTrainer(null, TaskType.REDUCE);
-//
-//  }
+  // public static void main(String[] args) throws IllegalArgumentException,
+  // InstantiationException, IllegalAccessException, InvocationTargetException {
+  // CompletedTasksTrainer mapTrainer = new CompletedTasksTrainer(null,
+  // TaskType.MAP);
+  // CompletedTasksTrainer reduceTrainer = new CompletedTasksTrainer(null,
+  // TaskType.REDUCE);
+  //
+  // }
 }

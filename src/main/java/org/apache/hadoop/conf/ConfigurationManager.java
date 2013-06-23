@@ -1,23 +1,25 @@
 package org.apache.hadoop.conf;
 
 import java.lang.reflect.InvocationTargetException;
-import java.io.File;
 import java.util.HashSet;
 
 /**
  * This class simplify the configuration using Apache Configuration. An instance
- * can be create using {@link ConfigurationManager#createFor(Object)}.
- * Any object can use an instance of this class parametrized on itself to:
+ * can be create using {@link ConfigurationManager#createFor(Object)}. Any
+ * object can use an instance of this class parametrized on itself to:
  * <ul>
- *  <li>declare how it can be configured using 
- *  {@link ConfigurationManager#addConfiguratorFor(Class, String, String, Object, Configurator)},
- *  {@link ConfigurationManager#addConfiguratorForOrFalse(Class, String, String, Object, Configurator)}
- *  or {@link  ConfigurationManager#addConfiguratorAndConfiguration(Configurator, ConfigurationDescription)}</li>
- *  <li>get a string representing the current configuration using {@link ConfigurationManager#toString()}</li>
- *  <li>configure the target by passing a {@link Configuration} to 
- *          {@link ConfigurationManager#configure(Configuration)}</li>
+ * <li>declare how it can be configured using
+ * {@link ConfigurationManager#addConfiguratorFor(Class, String, String, Object, Configurator)},
+ * {@link ConfigurationManager#addConfiguratorForOrFalse(Class, String, String, Object, Configurator)}
+ * or
+ * {@link ConfigurationManager#addConfiguratorAndConfiguration(Configurator, ConfigurationDescription)}
+ * </li>
+ * <li>get a string representing the current configuration using
+ * {@link ConfigurationManager#toString()}</li>
+ * <li>configure the target by passing a {@link Configuration} to
+ * {@link ConfigurationManager#configure(Configuration)}</li>
  * </ul>
- *
+ * 
  * ConfigurationManager can be used in any class extending {@link Configurable}
  * by overriding the method {@link Configurable#setConf(Configuration)} and
  * adding a call to {@link ConfigurationManager#configure(Configuration)}:
@@ -34,8 +36,9 @@ import java.util.HashSet;
  * }
  * }
  * </pre>
- *
- * @param <O> the class to configure
+ * 
+ * @param <O>
+ *          the class to configure
  */
 public class ConfigurationManager<O> {
   private O toConfigure;
@@ -46,18 +49,18 @@ public class ConfigurationManager<O> {
     this.toConfigure = toConfigure;
   }
 
-  
   public static <O> ConfigurationManager<O> createFor(O toConfigure) {
     if (toConfigure == null) {
-      throw new NullPointerException("cannot create a configuration manager for null");
+      throw new NullPointerException(
+          "cannot create a configuration manager for null");
     }
     return new ConfigurationManager<O>(toConfigure);
   }
-  
+
   public void accept(ConfigurationDescriptionToXMLConverter converter) {
-    for (ConfiguratorConfiguration<?, O> configuratorConfiguration 
-                    : this.configuratorConfigurations) {
-        converter.addConfigurationDescription(configuratorConfiguration.configuration);
+    for (ConfiguratorConfiguration<?, O> configuratorConfiguration : this.configuratorConfigurations) {
+      converter
+          .addConfigurationDescription(configuratorConfiguration.configuration);
     }
   }
 
@@ -66,20 +69,23 @@ public class ConfigurationManager<O> {
       configuratorConfiguration.configure(this.toConfigure, conf);
     }
   }
-  
-  public <T> void addConfiguratorFor(FieldType<T> cls, String key, String description, T defaultValue, Configurator<T, O > configurator) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
+
+  public <T> void addConfiguratorFor(FieldType<T> cls, String key,
+      String description, T defaultValue, Configurator<T, O> configurator)
+      throws IllegalArgumentException, InstantiationException,
+      IllegalAccessException, InvocationTargetException {
     this.addConfiguratorAndConfiguration(configurator,
         ConfigurationDescription.from(cls, key, description, defaultValue));
   }
-  
-//  public <T> void addConfiguratorFor(Class<T> cls, String key,
-//      String description, T defaultValue, Configurator<T, O> configurator)
-//      throws IllegalArgumentException, InstantiationException,
-//      IllegalAccessException, InvocationTargetException {
-//    this.addConfiguratorAndConfiguration(configurator,
-//        ConfigurationDescription.from(cls, key, description, defaultValue));
-//  }
-  
+
+  // public <T> void addConfiguratorFor(Class<T> cls, String key,
+  // String description, T defaultValue, Configurator<T, O> configurator)
+  // throws IllegalArgumentException, InstantiationException,
+  // IllegalAccessException, InvocationTargetException {
+  // this.addConfiguratorAndConfiguration(configurator,
+  // ConfigurationDescription.from(cls, key, description, defaultValue));
+  // }
+
   public <T> boolean addConfiguratorForOrFalse(FieldType<T> cls, String key,
       String description, T defaultValue, Configurator<T, O> configurator) {
     try {
@@ -101,7 +107,7 @@ public class ConfigurationManager<O> {
     this.configuratorConfigurations.add(new ConfiguratorConfiguration<T, O>(
         configuration, configurator));
   }
-  
+
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder("Configuration keys for "
@@ -162,22 +168,15 @@ class ExampleObj {
 
   public ExampleObj() throws IllegalArgumentException, InstantiationException,
       IllegalAccessException, InvocationTargetException {
-    this.cm.addConfiguratorFor(
-          FieldType.Integer
-        , "intKey"
-        , "this is the description for configurator of the i field"
-        , -1
-        , new Configurator<Integer, ExampleObj>() {
+    this.cm.addConfiguratorFor(FieldType.Integer, "intKey",
+        "this is the description for configurator of the i field", -1,
+        new Configurator<Integer, ExampleObj>() {
           protected void set(ExampleObj obj, Integer value) {
             obj.setI(value);
           }
         });
-    this.cm.addConfiguratorFor(
-          FieldType.Float
-        , "floatKey"
-        , "description"
-        , -1f
-        , new Configurator<Float, ExampleObj>() {
+    this.cm.addConfiguratorFor(FieldType.Float, "floatKey", "description", -1f,
+        new Configurator<Float, ExampleObj>() {
           protected void set(ExampleObj obj, Float value) {
             obj.setF(value);
           }
@@ -201,7 +200,8 @@ class ExampleObj {
     return String.valueOf(this.i + " " + this.f);
   }
 
-  public static void main(String[] args) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
+  public static void main(String[] args) throws IllegalArgumentException,
+      InstantiationException, IllegalAccessException, InvocationTargetException {
     ExampleObj eo = new ExampleObj();
     System.out.println(eo.cm.toString());
     Configuration c = new Configuration();

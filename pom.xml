@@ -17,6 +17,26 @@
         <target>1.6</target>
       </configuration>
     </plugin>
+    <plugin>
+      <groupId>org.codehaus.mojo</groupId>
+      <artifactId>exec-maven-plugin</artifactId>
+      <version>1.2</version>
+      <executions>
+        <execution>
+          <id>build-dump</id>
+          <phase>process-classes</phase>
+          <goals>
+            <goal>java</goal>
+          </goals>
+        </execution>
+      </executions>
+      <configuration>
+        <mainClass>org.apache.hadoop.mapred.HFSPScheduler</mainClass>
+        <arguments>
+          <argument>${project.build.directory}${file.separator}hfsp-conf.xml</argument>
+        </arguments>
+      </configuration>
+    </plugin>
   </plugins>
   </build>
   <dependencies>

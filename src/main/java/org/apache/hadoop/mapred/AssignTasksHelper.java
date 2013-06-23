@@ -19,13 +19,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import org.apache.commons.logging.Log;
-import org.apache.hadoop.mapred.AssignTasksHelper.Phase;
 import org.apache.hadoop.mapred.HFSPScheduler.QueueType;
 import org.apache.hadoop.mapreduce.TaskType;
 
@@ -54,12 +52,12 @@ public class AssignTasksHelper {
           suspendedTasksComparator);
     }
 
-//    public TaskStatus put(TaskStatus status) {
-//      if (status.getRunState() == TaskStatus.State.SUSPENDED)
-//        return this.suspendedTaskStatuses.put(status.getTaskID(), status);
-//      else
-//        return this.taskStatuses.put(status.getTaskID(), status);
-//    }
+    // public TaskStatus put(TaskStatus status) {
+    // if (status.getRunState() == TaskStatus.State.SUSPENDED)
+    // return this.suspendedTaskStatuses.put(status.getTaskID(), status);
+    // else
+    // return this.taskStatuses.put(status.getTaskID(), status);
+    // }
 
     @Override
     public String toString() {
@@ -147,15 +145,15 @@ public class AssignTasksHelper {
       if (this.doTrainScheduling && this.doSizeBasedScheduling)
         return this.maxSizeBasedSlots - this.runningSizeBasedTasks;
       if (this.doSizeBasedScheduling) {
-	int availSBSlots = this.maxTrainSlots + this.maxSizeBasedSlots
-                                              - this.runningSizeBasedTasks;
-	HFSPScheduler.LOG.info("totAvailableSizeBasedSlots: " +
-			   "maxTrainSlots: " + this.maxTrainSlots +
-			   " maxSizeBasedSlots: " + this.maxSizeBasedSlots +
-			   " runningSizeBasedTasks: " + this.runningSizeBasedTasks +
-			   " => " + availSBSlots);
-	return availSBSlots;
-      }return 0;
+        int availSBSlots = this.maxTrainSlots + this.maxSizeBasedSlots
+            - this.runningSizeBasedTasks;
+        HFSPScheduler.LOG.info("totAvailableSizeBasedSlots: "
+            + "maxTrainSlots: " + this.maxTrainSlots + " maxSizeBasedSlots: "
+            + this.maxSizeBasedSlots + " runningSizeBasedTasks: "
+            + this.runningSizeBasedTasks + " => " + availSBSlots);
+        return availSBSlots;
+      }
+      return 0;
     }
   }
 
@@ -223,13 +221,13 @@ public class AssignTasksHelper {
     return this.helper(type).currAvailableSlots;
   }
 
-    TaskType getTaskType(TaskAttemptID tid) {
-	return tid.getTaskID().isMap() ? TaskType.MAP : TaskType.REDUCE;
-    }
+  TaskType getTaskType(TaskAttemptID tid) {
+    return tid.getTaskID().isMap() ? TaskType.MAP : TaskType.REDUCE;
+  }
 
   private void initTaskStatuses() {
     for (TaskStatus taskStatus : ttStatus.getTaskReports()) {
-	TaskType taskType = this.getTaskType(taskStatus.getTaskID());
+      TaskType taskType = this.getTaskType(taskStatus.getTaskID());
       JobID jobID = taskStatus.getTaskID().getJobID();
       if (null != scheduler.getJob(jobID, QueueType.SIZE_BASED, taskType)) {
         HelperForType assistant = this.helper(taskType);
@@ -239,9 +237,9 @@ public class AssignTasksHelper {
         }
         TaskStatuses taskStatuses = assistant.taskStatusesSizeBased.get(jdi);
         if (this.scheduler.preemptionStrategy.isPreempted(taskStatus)) {
-          taskStatuses.suspendedTaskStatuses.put(taskStatus.getTaskID(), taskStatus);
-        }
-        else {
+          taskStatuses.suspendedTaskStatuses.put(taskStatus.getTaskID(),
+              taskStatus);
+        } else {
           taskStatuses.taskStatuses.put(taskStatus.getTaskID(), taskStatus);
         }
       }
@@ -262,7 +260,7 @@ public class AssignTasksHelper {
    */
   public void suspend(TaskAttemptID taskID, JobID jID, Phase phase,
       JobDurationInfo jdiSuspended, JobDurationInfo jdiSuspender) {
-      HelperForType helper = this.helper(this.getTaskType(taskID));
+    HelperForType helper = this.helper(this.getTaskType(taskID));
     if (jdiSuspended == null)
       helper.actions.get(phase).add(new SuspendForTrainLog(taskID, jID));
     else
@@ -279,7 +277,7 @@ public class AssignTasksHelper {
 
   public void kill(TaskAttemptID pTAID, JobID jobID, Phase phase,
       JobDurationInfo jdiKilled, JobDurationInfo jdiKiller) {
-      HelperForType helper = this.helper(this.getTaskType(pTAID));
+    HelperForType helper = this.helper(this.getTaskType(pTAID));
     if (jdiKilled == null)
       helper.actions.get(phase).add(new KillForTrainLog(pTAID, jobID));
     else
@@ -310,7 +308,7 @@ public class AssignTasksHelper {
    * based job
    */
   void resume(TaskAttemptID tAID, Phase phase) {
-      HelperForType helper = this.helper(this.getTaskType(tAID));
+    HelperForType helper = this.helper(this.getTaskType(tAID));
     helper.actions.get(phase).add(new ResumeLog(tAID));
     helper.currAvailableSlots--;
     helper.runningSizeBasedTasks++;

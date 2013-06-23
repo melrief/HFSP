@@ -31,7 +31,6 @@ public class JobDurationInfoFactory extends Configured implements
 
   public static JobDurationInfo createBenchJobDurationInfo(JobInProgress jip,
       TaskType type) {
-    JobConf jobConf = jip.getJobConf();
     TaskInProgress[] tips = jip.getTasks(type);
     Map<TaskID, TaskDurationInfo> tasks = new HashMap<TaskID, TaskDurationInfo>();
 

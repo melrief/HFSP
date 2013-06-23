@@ -43,12 +43,12 @@ public enum LocalityLevel {
     TaskID tipID = mapTask.getTaskID().getTaskID();
     TaskInProgress tip = job.getTaskInProgress(tipID);
     switch (job.getLocalityLevel(tip, tracker)) {
-    case 0:
-      return LocalityLevel.NODE;
-    case 1:
-      return LocalityLevel.RACK;
-    default:
-      return LocalityLevel.ANY;
+      case 0:
+        return LocalityLevel.NODE;
+      case 1:
+        return LocalityLevel.RACK;
+      default:
+        return LocalityLevel.ANY;
     }
   }
 
@@ -59,12 +59,12 @@ public enum LocalityLevel {
    */
   public int toCacheLevelCap() {
     switch (this) {
-    case NODE:
-      return 1;
-    case RACK:
-      return 2;
-    default:
-      return Integer.MAX_VALUE;
+      case NODE:
+        return 1;
+      case RACK:
+        return 2;
+      default:
+        return Integer.MAX_VALUE;
     }
   }
 }

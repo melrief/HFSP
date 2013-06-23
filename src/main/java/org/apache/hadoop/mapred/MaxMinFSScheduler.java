@@ -16,21 +16,54 @@
 package org.apache.hadoop.mapred;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.TreeMap;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.mapreduce.TaskType;
 
-import util.CircularIterator;
-
 public class MaxMinFSScheduler<JobDurationInfoClass extends JobDurationInfoBase<TaskDurationInfoClass>, TaskDurationInfoClass extends TaskDurationInfoBase>
     implements IVirtualScheduler<JobDurationInfoClass, TaskDurationInfoClass> {
 
   private static final Log LOG = LogFactory.getLog(MaxMinFSScheduler.class);
 
+  static class CircularIterator<E> implements Iterator<E> {
+
+    private Collection<E> collection;
+    private Iterator<E> iterator;
+
+    public CircularIterator(final Collection<E> collection) {
+      this.collection = collection;
+      this.iterator = collection.iterator();
+    }
+
+    @Override
+    public final boolean hasNext() {
+      return collection.size() > 0;
+    }
+
+    @Override
+    public final E next() {
+      if (!this.hasNext()) {
+        throw new NoSuchElementException();
+      }
+      if (!iterator.hasNext()) {
+        iterator = collection.iterator();
+      }
+      return iterator.next();
+    }
+
+    @Override
+    public final void remove() {
+      iterator.remove();
+    }
+
+  }
+  
   /**
    * Assign tasks of jobs to cluster's slots using a maxmin fair share. It
    * doesn't override slots with assigned tasks.

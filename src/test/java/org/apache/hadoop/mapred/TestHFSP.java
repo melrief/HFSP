@@ -29,38 +29,40 @@ public class TestHFSP extends TestCase {
   @Override
   protected void setUp() throws Exception {
     HFSPFakeJobInProgress.jobCounter = 0;
-    System.setProperty("hadoop.log.dir","/tmp/testHFSP_" +
-            Long.toString(System.currentTimeMillis()));
+    System.setProperty("hadoop.log.dir",
+        "/tmp/testHFSP_" + Long.toString(System.currentTimeMillis()));
     this.setUpLog4J();
     this.setUpCluster(1, 2, false);
   }
 
   private void setUpLog4J() {
-//    BasicConfigurator.configure();
+    // BasicConfigurator.configure();
     Logger.getRootLogger().setLevel(Level.INFO);
     Logger.getLogger(JobTracker.class).setLevel(Level.DEBUG);
     Logger.getLogger(HFSPScheduler.class).setLevel(Level.DEBUG);
   }
 
   private void setUpCluster(int numRacks, int numNodesPerRack,
-      boolean assignMultiple) throws IOException, IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException, InterruptedException {
+      boolean assignMultiple) throws IOException, IllegalArgumentException,
+      InstantiationException, IllegalAccessException,
+      InvocationTargetException, InterruptedException {
     this.conf = new JobConf();
     this.conf.setInt(HFSPScheduler.TRAINER_MIN_MAPS_KEYNAME, 0);
     this.conf.setInt(CompletedTasksTrainer.NUM_MAP_COMPLETED_KEY, 1);
     this.conf.setInt(HFSPScheduler.TRAINER_MIN_REDUCES_KEYNAME, 0);
     this.conf.setInt(SojournTrainer.getSojournConfKeyname(
         HFSPScheduler.PREFIX_KEYNAME, TaskType.REDUCE), 1);
-    
+
     this.conf.set("mapred.job.tracker", "localhost:0");
     this.conf.set("mapred.job.tracker.http.address", "0.0.0.0:0");
 
-    this.taskTrackerManager = new HFSPFakeTaskTrackerManager(numRacks
-                                                            ,numNodesPerRack);
+    this.taskTrackerManager = new HFSPFakeTaskTrackerManager(numRacks,
+        numNodesPerRack);
     this.clock = new FakeClock();
     try {
       this.jobTracker = new JobTracker(this.conf, this.clock);
     } catch (Exception e) {
-      throw new RuntimeException("Could not start JT",e);
+      throw new RuntimeException("Could not start JT", e);
     }
     this.scheduler = new HFSPScheduler(clock, true);
     this.scheduler.setConf(conf);
@@ -110,12 +112,14 @@ public class TestHFSP extends TestCase {
     return taskTrackerManager.getTaskTracker(taskTrackerName);
   }
 
-  /** Check state after job submission and correct assignment of tasks on empty
-   * slots */
+  /**
+   * Check state after job submission and correct assignment of tasks on empty
+   * slots
+   */
   @Test
   public void testSubmitJobAndAssignTask() throws IOException {
     this.advanceTime(1000);
-    
+
     JobInProgress submittedJIP = this.submitJob(JobStatus.RUNNING, 1, 1);
 
     assertTrue(this.scheduler.getJobs(null).iterator().next()
@@ -124,32 +128,36 @@ public class TestHFSP extends TestCase {
     List<Task> tasks = this.scheduler.assignTasks(tracker("tt1"));
     assertTrue(tasks.size() == 2);
   }
-  
-  /** 
+
+  /**
    * Complete 1 task of 2 and check that the job is marked as ready and removed
    * from training
    */
   @Test
   public void testTrainToSizeBased() throws IOException {
     this.advanceTime(1000);
-    
+
     JobInProgress jip = this.submitJob(JobStatus.RUNNING, 2, 2);
-    
+
     assertTrue(!this.scheduler.isJobReadyForSizeBased(jip, TaskType.MAP));
-    assertTrue(this.scheduler.getJob(jip.getJobID(), QueueType.TRAIN, TaskType.MAP).equals(jip));
-    assertTrue(this.scheduler.getJob(jip.getJobID(), QueueType.SIZE_BASED, TaskType.MAP).equals(jip));
-    
+    assertTrue(this.scheduler.getJob(jip.getJobID(), QueueType.TRAIN,
+        TaskType.MAP).equals(jip));
+    assertTrue(this.scheduler.getJob(jip.getJobID(), QueueType.SIZE_BASED,
+        TaskType.MAP).equals(jip));
+
     List<Task> tasks = this.scheduler.assignTasks(tracker("tt1"));
-    this.taskTrackerManager.finishTask("tt1", tasks.get(0).getTaskID(), 1000
-                                                                      , 2000);
-    
+    this.taskTrackerManager.finishTask("tt1", tasks.get(0).getTaskID(), 1000,
+        2000);
+
     this.scheduler.update();
-    
+
     assertTrue(this.scheduler.isJobReadyForSizeBased(jip, TaskType.MAP));
-    assertTrue(this.scheduler.getJob(jip.getJobID(), QueueType.TRAIN, TaskType.MAP) == null);
-    assertTrue(this.scheduler.getJob(jip.getJobID(), QueueType.SIZE_BASED, TaskType.MAP).equals(jip));
+    assertTrue(this.scheduler.getJob(jip.getJobID(), QueueType.TRAIN,
+        TaskType.MAP) == null);
+    assertTrue(this.scheduler.getJob(jip.getJobID(), QueueType.SIZE_BASED,
+        TaskType.MAP).equals(jip));
   }
-  
+
   /**
    * Submit two jobs of different sizes and check the order of the job queue
    */

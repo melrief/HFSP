@@ -19,7 +19,7 @@ import org.apache.hadoop.conf.AcceptConfigurationManagerVisitor;
 import org.apache.hadoop.mapreduce.TaskType;
 
 public interface Trainer<JobDurationInfoClass extends JobDurationInfoBase<? extends TaskDurationInfoBase>>
-  extends AcceptConfigurationManagerVisitor {
+    extends AcceptConfigurationManagerVisitor {
 
   /**
    * register the phase (MAP, REDUCE) of a job to the trainer

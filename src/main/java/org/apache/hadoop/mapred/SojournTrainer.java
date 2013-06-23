@@ -29,60 +29,58 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.conf.FieldType;
 import org.apache.hadoop.mapreduce.TaskType;
 
-public class SojournTrainer extends Configured 
-                            implements Trainer<JobDurationInfo> {
+public class SojournTrainer extends Configured implements
+    Trainer<JobDurationInfo> {
 
   static final Log LOG = LogFactory.getLog(SojournTrainer.class);
   ConfigurationManager<SojournTrainer> configurationManager;
   private int minTasks;
   private long threshold;
-  private SojournEstimator sojournEstimator;
   private Clock clock;
   private Map<JobID, Long> jipToMapEstimatedTime;
   private Map<JobID, Long> jipToReduceEstimatedTime;
   private Map<JobID, JobDurationInfo> jipToMapDuration;
   private Map<JobID, JobDurationInfo> jipToReduceDuration;
 
-  public SojournTrainer(TaskType type, Configuration conf,
-      SojournEstimator sojournEstimator,
-      Clock clock) throws IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException {
-    
-    this.configurationManager = ConfigurationManager.createFor(this);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Long
-      , SojournTrainer.getSojournConfKeyname(HFSPScheduler.PREFIX_KEYNAME, type)
-      , "a task with at least this sojourn time can be used for the job size estimation"
-      , Long.MAX_VALUE
-      , new Configurator<Long, SojournTrainer>() {
-          protected void set(SojournTrainer obj, Long value) {
-            obj.threshold = value;
-          }
-        });
+  public SojournTrainer(TaskType type, Configuration conf, Clock clock)
+      throws IllegalArgumentException, InstantiationException,
+      IllegalAccessException, InvocationTargetException {
 
-    // this.minTasks = conf.getInt("mapred.hfsp-scheduler.trainer.min-reduces", 0);
-    this.configurationManager.addConfiguratorFor(
-        FieldType.Integer
-      , type == TaskType.MAP ? HFSPScheduler.TRAINER_MIN_MAPS_KEYNAME
-                             : HFSPScheduler.TRAINER_MIN_REDUCES_KEYNAME
-      , "jobs with a number of tasks smaller than this avoid the train " +
-          "and their size  is set to the smallest possible"
-      , 0
-      , new Configurator<Integer, SojournTrainer>() {
+    this.configurationManager = ConfigurationManager.createFor(this);
+    this.configurationManager
+        .addConfiguratorFor(
+            FieldType.Long,
+            SojournTrainer.getSojournConfKeyname(HFSPScheduler.PREFIX_KEYNAME,
+                type),
+            "a task with at least this sojourn time can be used for the job size estimation",
+            Long.MAX_VALUE, new Configurator<Long, SojournTrainer>() {
+              protected void set(SojournTrainer obj, Long value) {
+                obj.threshold = value;
+              }
+            });
+
+    // this.minTasks = conf.getInt("mapred.hfsp-scheduler.trainer.min-reduces",
+    // 0);
+    this.configurationManager.addConfiguratorFor(FieldType.Integer,
+        type == TaskType.MAP ? HFSPScheduler.TRAINER_MIN_MAPS_KEYNAME
+            : HFSPScheduler.TRAINER_MIN_REDUCES_KEYNAME,
+        "jobs with a number of tasks smaller than this avoid the train "
+            + "and their size  is set to the smallest possible", 0,
+        new Configurator<Integer, SojournTrainer>() {
           protected void set(SojournTrainer obj, Integer value) {
             obj.minTasks = value;
           }
         });
-    
+
     this.setConf(conf);
-    
-    this.sojournEstimator = sojournEstimator;
+
     this.clock = clock;
     this.jipToMapEstimatedTime = new HashMap<JobID, Long>();
     this.jipToReduceEstimatedTime = new HashMap<JobID, Long>();
     this.jipToMapDuration = new HashMap<JobID, JobDurationInfo>();
     this.jipToReduceDuration = new HashMap<JobID, JobDurationInfo>();
   }
-  
+
   @Override
   public void setConf(Configuration conf) {
     super.setConf(conf);
@@ -90,7 +88,7 @@ public class SojournTrainer extends Configured
       this.configurationManager.configure(conf);
     }
   }
-  
+
   @Override
   public boolean isReady(JobInProgress jip, TaskType type) {
 
@@ -115,6 +113,34 @@ public class SojournTrainer extends Configured
     return estimatedTime > -1;
   }
 
+  public static long getSojournTime(TaskInProgress task, long time) {
+    long finishTime = 0;
+    if (task.isMapTask()) {
+      finishTime = task.getExecFinishTime();
+      return (finishTime == 0) ? time - task.getExecStartTime() : task
+          .getExecFinishTime() - task.getExecStartTime();
+    } else {
+      long sortFinishTime = 0;
+      for (TaskStatus status : task.getTaskStatuses()) {
+        sortFinishTime = status.getSortFinishTime();
+        if (sortFinishTime == 0)
+          continue;
+        finishTime = status.getFinishTime();
+        // if (finishTime == 0 || finishTime == sortFinishTime)
+        if (finishTime == 0) {
+          SojournTrainer.LOG.debug(task.getTIPId() + " time: " + time
+              + " sortFinishTime: " + sortFinishTime + " finishTime: 0");
+          return time - sortFinishTime;
+        }
+        SojournTrainer.LOG.debug(task.getTIPId() + " time: " + time
+            + " sortFinishTime: " + sortFinishTime + " finishTime: "
+            + finishTime);
+        return finishTime - sortFinishTime;
+      }
+    }
+    return 0;
+  }
+  
   /**
    * @return the estimated finish time for the JobInProgress jip
    */
@@ -153,16 +179,14 @@ public class SojournTrainer extends Configured
 
       if (task.isComplete()) {
         // clean this
-        long currentExecTime = this.sojournEstimator.getSojournTime(task,
-            currentTime);
+        long currentExecTime = SojournTrainer.getSojournTime(task, currentTime);
         tipToSojournTime.put(task, currentExecTime);
       }
 
       if (!task.isRunning())
         continue;
 
-      long currentExecTime = this.sojournEstimator.getSojournTime(task,
-          currentTime);
+      long currentExecTime = SojournTrainer.getSojournTime(task, currentTime);
 
       if (currentExecTime >= this.threshold) {
         // task.getProgress() for reduces returns the total reduce phase

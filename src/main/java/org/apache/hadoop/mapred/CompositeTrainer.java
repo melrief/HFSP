@@ -24,57 +24,56 @@ import org.apache.hadoop.conf.ConfigurationDescriptionToXMLConverter;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.mapreduce.TaskType;
 
-public class BrokerTrainer extends Configured implements
+public class CompositeTrainer extends Configured implements
     Trainer<JobDurationInfo> {
 
-  private final static Log LOG = LogFactory.getLog(BrokerTrainer.class);
+  private final static Log LOG = LogFactory.getLog(CompositeTrainer.class);
 
   Trainer<JobDurationInfo> mapTrainer;
   Trainer<JobDurationInfo> reduceTrainer;
   JobDurationInfoFactory mapFactory;
-  //JobDurationInfoFactory reduceFactory;
 
-  // TODO: virtual progress manager should not be used by brokerTrainer, fix
+  // JobDurationInfoFactory reduceFactory;
+
+  // TODO: virtual progress manager should not be used by this, fix
   // this
-  public BrokerTrainer(HFSPScheduler scheduler, Configuration conf, Clock clock)
+  public CompositeTrainer(HFSPScheduler scheduler, Configuration conf, Clock clock)
       throws IllegalArgumentException, InstantiationException,
       IllegalAccessException, InvocationTargetException {
     super(conf);
 
     // MAP conf
-    this.mapFactory = new CompletedTasksDurationFactory(scheduler, 0, 0);
+    this.mapFactory = new CompletedTasksDurationFactory(scheduler);
     this.mapTrainer = new CompletedTasksTrainer(TaskType.MAP, conf,
         this.mapFactory);
 
     // REDUCE
-    SojournEstimator estimator = new SojournEstimator();
-//    this.reduceFactory = new TasksProgressDurationFactory(TaskType.REDUCE,
-//        conf, scheduler, estimator, clock);
-    this.reduceTrainer = new SojournTrainer(TaskType.REDUCE, conf, estimator
-                                          , clock);
+    // this.reduceFactory = new TasksProgressDurationFactory(TaskType.REDUCE,
+    // conf, scheduler, estimator, clock);
+    this.reduceTrainer = new SojournTrainer(TaskType.REDUCE, conf, clock);
   }
 
   @Override
   public void setConf(Configuration conf) {
     super.setConf(conf);
-    
+
     if (this.mapFactory != null) {
       this.mapFactory.setConf(conf);
     }
-    
+
     if (this.mapTrainer != null) {
       this.mapTrainer.setConf(conf);
     }
-    
-//    if (this.reduceFactory != null) {
-//      this.reduceFactory.setConf(conf);
-//    }
-    
+
+    // if (this.reduceFactory != null) {
+    // this.reduceFactory.setConf(conf);
+    // }
+
     if (this.reduceTrainer != null) {
       this.reduceTrainer.setConf(conf);
     }
   }
-  
+
   private Trainer<JobDurationInfo> getTrainer(TaskType type) {
     if (type == TaskType.MAP)
       return this.mapTrainer;
@@ -100,7 +99,8 @@ public class BrokerTrainer extends Configured implements
   @Override
   public JobDurationInfo getJobDurationInfo(JobInProgress jip, TaskType type) {
     Trainer<JobDurationInfo> trainer = this.getTrainer(type);
-    LOG.debug("forwarding getJobDurationInfo to " + type + " trainer " + trainer.getClass());
+    LOG.debug("forwarding getJobDurationInfo to " + type + " trainer "
+        + trainer.getClass());
     return trainer.getJobDurationInfo(jip, type);
   }
 

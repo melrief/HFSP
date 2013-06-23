@@ -18,6 +18,9 @@
  */
 package org.apache.hadoop.mapred;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;
@@ -36,18 +39,16 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.AcceptConfigurationManagerVisitor;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.conf.ConfigurationDescriptionToXMLConverter;
 import org.apache.hadoop.conf.ConfigurationManager;
 import org.apache.hadoop.conf.Configurator;
 import org.apache.hadoop.conf.FieldType;
-import org.apache.hadoop.conf.ConfigurationDescriptionToXMLConverter;
 import org.apache.hadoop.mapred.AssignTasksHelper.HelperForType;
 import org.apache.hadoop.mapred.AssignTasksHelper.Phase;
 import org.apache.hadoop.mapred.AssignTasksHelper.TaskStatuses;
 import org.apache.hadoop.mapreduce.TaskType;
 import org.apache.hadoop.mapreduce.server.jobtracker.TaskTracker;
 import org.apache.hadoop.util.ReflectionUtils;
-
-import util.Pair;
 
 /**
  * Double queue scheduler in which one queue is used for training and the other
@@ -57,7 +58,8 @@ import util.Pair;
  * 
  */
 // FIXME: fix mock mode
-public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationManagerVisitor {
+public class HFSPScheduler extends TaskScheduler implements
+    AcceptConfigurationManagerVisitor {
 
   static {
     Configuration.addDefaultResource("hfsp-scheduler.xml");
@@ -259,9 +261,10 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
 
     @Override
     public String toString() {
-      return "JobLocalityInfo(lastMapLocalityLevel: " + this.lastMapLocalityLevel +
-             ", timeWaitedForLocalMap: " + this.timeWaitedForLocalMap +
-             ", skippedAtLastHeartbeat: " + this.skippedAtLastHeartbeat + ")";            
+      return "JobLocalityInfo(lastMapLocalityLevel: "
+          + this.lastMapLocalityLevel + ", timeWaitedForLocalMap: "
+          + this.timeWaitedForLocalMap + ", skippedAtLastHeartbeat: "
+          + this.skippedAtLastHeartbeat + ")";
     }
   }
 
@@ -425,7 +428,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
 
     // Trainer
     try {
-      this.trainer = new BrokerTrainer(this, conf, this.clock);
+      this.trainer = new CompositeTrainer(this, conf, this.clock);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -772,7 +775,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
     if (LOG.isDebugEnabled()) {
       taskHelper.logInfos(LOG);
     }
-    
+
     return (List<Task>) taskHelper.result.clone();
   }
 
@@ -886,11 +889,12 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
 
       if (this.preemptionStrategy.isPreemptionActive()
           && (missingNewSlots > 0 || missingResumableSlots > 0)) {
-        Pair<Integer, Integer> claimedSlots = this.claimSlots(helper,
+        ClaimedSlots claimedSlots = this.claimSlots(helper,
             Phase.SIZE_BASED, jip, missingNewSlots, missingResumableSlots,
             totClaimedSlots, sizeBasedJobs, taskStatusesSizeBased);
 
-        totClaimedSlots += claimedSlots.getT1() + claimedSlots.getT2();
+        totClaimedSlots += claimedSlots.getNumPreemptedForNewTasks() 
+                         + claimedSlots.getNumPreemptedForResumableTasks();
 
         LOG.debug(jip.getJobID() + " taskStatusesOnTT: "
             + taskStatusesSizeBased.get(jdi) + " pendingNewTasks: "
@@ -943,7 +947,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
                 + " cannot obtain slot for new task on "
                 + taskHelper.ttStatus.getTrackerName() + " (#pendingNew: "
                 + pendingNewTasks + ", #pendingResumable: "
-                + pendingResumableTasks + ", #free_" + type + "_slots: " 
+                + pendingResumableTasks + ", #free_" + type + "_slots: "
                 + helper.currAvailableSlots + ")");
             break;
           }
@@ -1006,11 +1010,11 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
       }
 
       if (this.preemptionStrategy.isPreemptionActive() && missingSlots > 0) {
-        Pair<Integer, Integer> claimedSlots = this.claimSlots(helper,
+        ClaimedSlots claimedSlots = this.claimSlots(helper,
             Phase.TRAIN, jip, missingSlots, 0, totClaimedSlots, sizeBasedJobs,
             taskStatusesSizeBased);
 
-        totClaimedSlots += claimedSlots.getT1();
+        totClaimedSlots += claimedSlots.getNumPreemptedForNewTasks();
       }
 
       for (int i = 0; i < trainTasksPending && helper.currAvailableSlots > 0
@@ -1050,7 +1054,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
    *         the tuple is the number of tasks preempted for new tasks, the
    *         second in the number of tasks preempted for tasks to be resumed
    */
-  private Pair<Integer, Integer> claimSlots(HelperForType helper,
+  private ClaimedSlots claimSlots(HelperForType helper,
       final Phase phase, final JobInProgress jip, int missingNewSlots,
       int missingResumableSlots, int numToSkip,
       TreeMap<JobDurationInfo, JobInProgress> allJobs,
@@ -1121,7 +1125,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
       if (jdi != null) {
 
         if (jipToPreempt.getJobID().equals(jip.getJobID())) {
-          return new Pair<Integer, Integer>(startingNumTasksToPreemptForNew
+          return new ClaimedSlots(startingNumTasksToPreemptForNew
               - numTasksToPreempt, startingResumableSlots
               - missingResumableSlots);
         }
@@ -1135,7 +1139,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
                 + nextSBJ.getValue().getJobID() + ".len: "
                 + nextSBJ.getKey().getPhaseDuration());
           }
-          return new Pair<Integer, Integer>(startingNumTasksToPreemptForNew
+          return new ClaimedSlots(startingNumTasksToPreemptForNew
               - numTasksToPreempt, startingResumableSlots
               - missingResumableSlots);
         }
@@ -1241,7 +1245,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
       }
     }
 
-    return new Pair<Integer, Integer>(startingNumTasksToPreemptForNew
+    return new ClaimedSlots(startingNumTasksToPreemptForNew
         - numTasksToPreempt, startingResumableSlots - missingNewSlots);
   }
 
@@ -1342,18 +1346,18 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
       LocalityLevel localityLevel = this.getAllowedLocalityLevel(job,
           currentTime);
       switch (localityLevel) {
-      case NODE:
-        task = job.obtainNewNodeLocalMapTask(tts, numTaskTrackers,
-            ttm.getNumberOfUniqueHosts());
-        break;
-      case RACK:
-        task = job.obtainNewNodeOrRackLocalMapTask(tts, numTaskTrackers,
-            ttm.getNumberOfUniqueHosts());
-        break;
-      default:
-        task = job.obtainNewMapTask(tts, numTaskTrackers,
-            ttm.getNumberOfUniqueHosts());
-        break;
+        case NODE:
+          task = job.obtainNewNodeLocalMapTask(tts, numTaskTrackers,
+              ttm.getNumberOfUniqueHosts());
+          break;
+        case RACK:
+          task = job.obtainNewNodeOrRackLocalMapTask(tts, numTaskTrackers,
+              ttm.getNumberOfUniqueHosts());
+          break;
+        default:
+          task = job.obtainNewMapTask(tts, numTaskTrackers,
+              ttm.getNumberOfUniqueHosts());
+          break;
       }
     } else {
       task = job.obtainNewReduceTask(tts, numTaskTrackers,
@@ -1392,8 +1396,8 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
         tracker);
     info.lastMapLocalityLevel = localityLevel;
     info.timeWaitedForLocalMap = 0;
-    LOG.debug(job.getJobID() + " set lastLocalityLevel=" + info.lastMapLocalityLevel
-        + " timeWaitedForLocalMap=" + 0);
+    LOG.debug(job.getJobID() + " set lastLocalityLevel="
+        + info.lastMapLocalityLevel + " timeWaitedForLocalMap=" + 0);
   }
 
   /**
@@ -1427,44 +1431,44 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
 
     // In the common case, compute locality level based on time waited
     switch (info.lastMapLocalityLevel) {
-    case NODE: // Last task launched was node-local
-      if (info.timeWaitedForLocalMap >= 2 * localityDelay) {
+      case NODE: // Last task launched was node-local
+        if (info.timeWaitedForLocalMap >= 2 * localityDelay) {
+          LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
+              + info.lastMapLocalityLevel + " timeWaitedForLocalMap: "
+              + info.timeWaitedForLocalMap + " >= 2 * localityDelay:"
+              + localityDelay + " => locality level is ANY");
+          return LocalityLevel.ANY;
+        } else if (info.timeWaitedForLocalMap >= localityDelay) {
+          LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
+              + info.lastMapLocalityLevel + " timeWaitedForLocalMap: "
+              + info.timeWaitedForLocalMap + " >= localityDelay:"
+              + localityDelay + " => locality level is RACK");
+          return LocalityLevel.RACK;
+        } else {
+          LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
+              + info.lastMapLocalityLevel + " timeWaitedForLocalMap: "
+              + info.timeWaitedForLocalMap + " < localityDelay:"
+              + localityDelay + " => locality level is NODE");
+          return LocalityLevel.NODE;
+        }
+      case RACK: // Last task launched was rack-local
+        if (info.timeWaitedForLocalMap >= localityDelay) {
+          LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
+              + info.lastMapLocalityLevel + " timeWaitedForLocalMap: "
+              + info.timeWaitedForLocalMap + " >= localityDelay:"
+              + localityDelay + " => locality level is ANY");
+          return LocalityLevel.ANY;
+        } else {
+          LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
+              + info.lastMapLocalityLevel + " timeWaitedForLocalMap: "
+              + info.timeWaitedForLocalMap + " < localityDelay:"
+              + localityDelay + " => locality level is RACK");
+          return LocalityLevel.RACK;
+        }
+      default: // Last task was non-local; can launch anywhere
         LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
-            + info.lastMapLocalityLevel + " timeWaitedForLocalMap: "
-            + info.timeWaitedForLocalMap + " >= 2 * localityDelay:"
-            + localityDelay + " => locality level is ANY");
+            + info.lastMapLocalityLevel + " => locality level is ANY");
         return LocalityLevel.ANY;
-      } else if (info.timeWaitedForLocalMap >= localityDelay) {
-        LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
-            + info.lastMapLocalityLevel + " timeWaitedForLocalMap: "
-            + info.timeWaitedForLocalMap + " >= localityDelay:" + localityDelay
-            + " => locality level is RACK");
-        return LocalityLevel.RACK;
-      } else {
-        LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
-            + info.lastMapLocalityLevel + " timeWaitedForLocalMap: "
-            + info.timeWaitedForLocalMap + " < localityDelay:" + localityDelay
-            + " => locality level is NODE");
-        return LocalityLevel.NODE;
-      }
-    case RACK: // Last task launched was rack-local
-      if (info.timeWaitedForLocalMap >= localityDelay) {
-        LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
-            + info.lastMapLocalityLevel + " timeWaitedForLocalMap: "
-            + info.timeWaitedForLocalMap + " >= localityDelay:" + localityDelay
-            + " => locality level is ANY");
-        return LocalityLevel.ANY;
-      } else {
-        LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
-            + info.lastMapLocalityLevel + " timeWaitedForLocalMap: "
-            + info.timeWaitedForLocalMap + " < localityDelay:" + localityDelay
-            + " => locality level is RACK");
-        return LocalityLevel.RACK;
-      }
-    default: // Last task was non-local; can launch anywhere
-      LOG.debug(job.getJobID() + " lastMapLocalityLevel: "
-          + info.lastMapLocalityLevel + " => locality level is ANY");
-      return LocalityLevel.ANY;
     }
   }
 
@@ -1711,7 +1715,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
       this.removeJobIfCompleted(jip);
     }
   }
-  
+
   /**
    * Get the maximum map and reduce tasks for the cluster
    * 
@@ -1725,20 +1729,26 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
   }
 
   public static void main(String[] args) throws IllegalArgumentException,
-      InstantiationException, IllegalAccessException, InvocationTargetException
-     ,javax.xml.parsers.ParserConfigurationException {
+      InstantiationException, IllegalAccessException,
+      InvocationTargetException, javax.xml.parsers.ParserConfigurationException, IOException {
     HFSPScheduler scheduler = new HFSPScheduler();
-    ConfigurationDescriptionToXMLConverter converter =
-                ConfigurationDescriptionToXMLConverter.newInstance();
+    ConfigurationDescriptionToXMLConverter converter = ConfigurationDescriptionToXMLConverter
+        .newInstance();
     scheduler.accept(converter);
-    converter.write(System.out);
+    if (args.length > 0) {
+      FileOutputStream outputStream = new FileOutputStream(new File(args[0]).getAbsoluteFile());
+      converter.write(outputStream);
+      outputStream.close();
+    } else {
+      converter.write(System.out);
+    }
   }
 
   public void accept(ConfigurationDescriptionToXMLConverter converter) {
     this.configurationManager.accept(converter);
     this.trainer.accept(converter);
   }
-  
+
   /**
    * Remove a job if it is completed in both the real and the virtual cluster
    */
@@ -1747,8 +1757,8 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
       if (LOG.isDebugEnabled()) {
         JobStatus jobStatus = jip.getStatus();
         LOG.debug("Cannot remove " + jip + " because is not completed "
-                + "(mapProgress: " + jobStatus.mapProgress() + ","
-                + "reduceProgress: " + jobStatus.reduceProgress() + ")");
+            + "(mapProgress: " + jobStatus.mapProgress() + ","
+            + "reduceProgress: " + jobStatus.reduceProgress() + ")");
       }
       return false;
     }
@@ -1761,7 +1771,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
       }
       return false;
     }
-      
+
     JobDurationInfo reduceDuration = this.getDuration(jid, TaskType.REDUCE);
     if (!reduceDuration.isFinished()) {
       if (LOG.isDebugEnabled()) {
@@ -1770,8 +1780,8 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
       }
       return false;
     }
-    
-    if(this.jIDToMapJDI.containsKey(jid)) {
+
+    if (this.jIDToMapJDI.containsKey(jid)) {
       this.jIDToMapJDI.remove(jid);
     }
     if (this.jIDToReduceJDI.containsKey(jid)) {
@@ -1781,7 +1791,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
       this.jIDToJIP.remove(jid);
     }
     if (this.infos.containsKey(jid)) {
-      this.infos.remove(jid);      
+      this.infos.remove(jid);
     }
     if (this.sizeBasedMapJobsQueue.containsKey(mapDuration)) {
       this.sizeBasedMapJobsQueue.remove(mapDuration);
@@ -1795,7 +1805,7 @@ public class HFSPScheduler extends TaskScheduler implements AcceptConfigurationM
     if (this.trainingReduceJobs.contains(jip)) {
       this.trainingReduceJobs.remove(jip);
     }
-    
+
     return true;
   }
 }

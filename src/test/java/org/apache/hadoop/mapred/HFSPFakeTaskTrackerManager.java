@@ -15,19 +15,14 @@ public class HFSPFakeTaskTrackerManager implements TaskTrackerManager {
   int maxMapTasksPerTracker = 2;
   int maxReduceTasksPerTracker = 2;
   long ttExpiryInterval = 10 * 60 * 1000L; // default interval
-  List<JobInProgressListener> listeners =
-    new ArrayList<JobInProgressListener>();
+  List<JobInProgressListener> listeners = new ArrayList<JobInProgressListener>();
   Map<JobID, JobInProgress> jobs = new HashMap<JobID, JobInProgress>();
-  
-  private Map<String, TaskTracker> trackers =
-    new HashMap<String, TaskTracker>();
-  private Map<String, TaskStatus> statuses = 
-    new HashMap<String, TaskStatus>();
-  private Map<String, HFSPFakeTaskInProgress> tips = 
-    new HashMap<String, HFSPFakeTaskInProgress>();
-  private Map<String, TaskTrackerStatus> trackerForTip =
-    new HashMap<String, TaskTrackerStatus>();
-  
+
+  private Map<String, TaskTracker> trackers = new HashMap<String, TaskTracker>();
+  private Map<String, TaskStatus> statuses = new HashMap<String, TaskStatus>();
+  private Map<String, HFSPFakeTaskInProgress> tips = new HashMap<String, HFSPFakeTaskInProgress>();
+  private Map<String, TaskTrackerStatus> trackerForTip = new HashMap<String, TaskTrackerStatus>();
+
   public HFSPFakeTaskTrackerManager(int numRacks, int numTrackersPerRack) {
     int nextTrackerId = 1;
     for (int rack = 1; rack <= numRacks; rack++) {
@@ -37,29 +32,27 @@ public class HFSPFakeTaskTrackerManager implements TaskTrackerManager {
         System.out.println("Creating TaskTracker tt" + id + " on " + host);
         TaskTracker tt = new TaskTracker("tt" + id);
         tt.setStatus(new TaskTrackerStatus("tt" + id, host, 0,
-            new ArrayList<TaskStatus>(), 0,
-            maxMapTasksPerTracker, maxReduceTasksPerTracker));
+            new ArrayList<TaskStatus>(), 0, maxMapTasksPerTracker,
+            maxReduceTasksPerTracker));
         trackers.put("tt" + id, tt);
       }
     }
   }
-  
+
   @Override
   public ClusterStatus getClusterStatus() {
     int numTrackers = trackers.size();
 
-    return new ClusterStatus(numTrackers, 0, 0,
-        ttExpiryInterval, maps, reduces,
-        numTrackers * maxMapTasksPerTracker,
-        numTrackers * maxReduceTasksPerTracker,
-        JobTracker.State.RUNNING);
+    return new ClusterStatus(numTrackers, 0, 0, ttExpiryInterval, maps,
+        reduces, numTrackers * maxMapTasksPerTracker, numTrackers
+            * maxReduceTasksPerTracker, JobTracker.State.RUNNING);
   }
 
   @Override
   public QueueManager getQueueManager() {
     return null;
   }
-  
+
   @Override
   public int getNumberOfUniqueHosts() {
     return trackers.size();
@@ -74,7 +67,6 @@ public class HFSPFakeTaskTrackerManager implements TaskTrackerManager {
     return statuses;
   }
 
-
   @Override
   public void addJobInProgressListener(JobInProgressListener listener) {
     listeners.add(listener);
@@ -84,7 +76,7 @@ public class HFSPFakeTaskTrackerManager implements TaskTrackerManager {
   public void removeJobInProgressListener(JobInProgressListener listener) {
     listeners.remove(listener);
   }
-  
+
   @Override
   public int getNextHeartbeatInterval() {
     return MRConstants.HEARTBEAT_INTERVAL_MIN;
@@ -100,27 +92,27 @@ public class HFSPFakeTaskTrackerManager implements TaskTrackerManager {
     return jobs.get(jobid);
   }
 
-  public void initJob (JobInProgress job) {
+  public void initJob(JobInProgress job) {
     // do nothing
   }
-  
-  public void failJob (JobInProgress job) {
+
+  public void failJob(JobInProgress job) {
     // do nothing
   }
-  
+
   // Test methods
-  
+
   public void submitJob(JobInProgress job) throws IOException {
     jobs.put(job.getJobID(), job);
     for (JobInProgressListener listener : listeners) {
       listener.jobAdded(job);
     }
   }
-  
+
   public TaskTracker getTaskTracker(String trackerID) {
     return trackers.get(trackerID);
   }
-  
+
   public void startTask(String trackerName, Task t, HFSPFakeTaskInProgress tip) {
     final boolean isMap = t.isMapTask();
     if (isMap) {
@@ -137,8 +129,9 @@ public class HFSPFakeTaskTrackerManager implements TaskTrackerManager {
     status.setRunState(TaskStatus.State.RUNNING);
     trackerStatus.getTaskReports().add(status);
   }
-  
-  public void finishTask(String taskTrackerName, String attemptId, long start, long end) {
+
+  public void finishTask(String taskTrackerName, String attemptId, long start,
+      long end) {
     HFSPFakeTaskInProgress tip = tips.get(attemptId);
     if (tip.isMapTask()) {
       maps--;
@@ -150,10 +143,11 @@ public class HFSPFakeTaskTrackerManager implements TaskTrackerManager {
     trackers.get(taskTrackerName).getStatus().getTaskReports().remove(status);
   }
 
-  public void finishTask(String taskTrackerName, TaskAttemptID attemptId, long start, long end) {
+  public void finishTask(String taskTrackerName, TaskAttemptID attemptId,
+      long start, long end) {
     this.finishTask(taskTrackerName, attemptId.toString(), start, end);
   }
-  
+
   @Override
   public boolean killTask(TaskAttemptID attemptId, boolean shouldFail) {
     String attemptIdStr = attemptId.toString();
