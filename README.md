@@ -12,13 +12,13 @@ the top directory issue the following command:
 $ mvn package
 ```
 
-This will create a jar file under /target/ called hfsp-scheduler-1.0.jar
-containing the scheduler and a file under /target/ called hfsp-conf.xml
-containing a default configuration file.
+This will create two files in the directory _/target_:
+- _hfsp-scheduler-1.0.jar_: a jar file containing the scheduler
+- _hfsp-conf.xml_: a default configuration file
 
 ## Use HFSP
 
-Copy hfsp-scheduler-1.0.jar in your Hadoop directory. Optionally, add the
+Copy _hfsp-scheduler-1.0.jar_ in your Hadoop directory. Optionally, add the
 configuration file for HFSP in the hadoop configuration directory.
 
 Set HFSP as task scheduler in conf/mapred-site.xml:
