@@ -32,7 +32,7 @@ public class HFSPFakeTaskTrackerManager implements TaskTrackerManager {
         System.out.println("Creating TaskTracker tt" + id + " on " + host);
         TaskTracker tt = new TaskTracker("tt" + id);
         tt.setStatus(new TaskTrackerStatus("tt" + id, host, 0,
-            new ArrayList<TaskStatus>(), 0, maxMapTasksPerTracker,
+            new ArrayList<TaskStatus>(), 0, 0, maxMapTasksPerTracker,
             maxReduceTasksPerTracker));
         trackers.put("tt" + id, tt);
       }
@@ -161,5 +161,11 @@ public class HFSPFakeTaskTrackerManager implements TaskTrackerManager {
     TaskStatus status = statuses.get(attemptIdStr);
     trackerForTip.get(attemptIdStr).getTaskReports().remove(status);
     return true;
+  }
+
+  @Override
+  public boolean isInSafeMode() {
+    // TODO Auto-generated method stub
+    return false;
   }
 }

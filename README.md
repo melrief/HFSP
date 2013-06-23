@@ -33,6 +33,11 @@ Set HFSP as task scheduler in conf/mapred-site.xml:
 </configuration>
 ```
 
+## Hadoop versions
+
+HFSP has been developed for the current stable version of Hadoop 1.x, that is 
+Hadoop 1.1.2.
+
 ## Acknowledgements
 
 The HFSP project is part of the [BigFoot project](http://www.bigfootproject.eu/)
