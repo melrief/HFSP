@@ -29,3 +29,7 @@ Set HFSP as task scheduler in conf/mapred-site.xml:
 	</property>
 </configuration>
 ```
+
+## Acknowledgements
+
+The HFSP project is part of the [BigFoot project](http://www.bigfootproject.eu/)
