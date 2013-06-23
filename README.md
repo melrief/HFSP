@@ -5,8 +5,11 @@ Hadoop.
 
 ## Compile HFSP
 
+In order to compile HFSP you need [Maven](http://maven.apache.org/). From
+the top directory issue the following command:
+
 ```
-$ mvn clean package
+$ mvn package
 ```
 
 This will create a jar file under /target/ called hfsp-scheduler-1.0.jar
