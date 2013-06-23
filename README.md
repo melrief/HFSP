@@ -9,7 +9,7 @@ In order to compile HFSP you need [Maven](http://maven.apache.org/). From
 the top directory issue the following command:
 
 ```
-$ mvn package
+$ mvn package -DskipTests
 ```
 
 This will create two files in the directory _/target_:
