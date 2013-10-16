@@ -33,7 +33,7 @@
       <configuration>
         <mainClass>org.apache.hadoop.mapred.HFSPScheduler</mainClass>
         <arguments>
-          <argument>${project.build.directory}${file.separator}hfsp-conf.xml</argument>
+          <argument>${project.build.directory}${file.separator}hfsp-scheduler.xml</argument>
         </arguments>
       </configuration>
     </plugin>
