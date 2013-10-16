@@ -14,7 +14,7 @@ $ mvn package -Dmaven.test.skip=true
 
 This will create two files in the directory _/target_:
 - _hfsp-scheduler-1.0-cdh4.4.0.jar_: a jar file containing the scheduler
-- _hfsp-conf.xml_: a default configuration file
+- _hfsp-scheduler.xml_: a default configuration file
 
 ## Use HFSP
 
