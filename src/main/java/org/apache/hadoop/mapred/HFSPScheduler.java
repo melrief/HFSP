@@ -1347,11 +1347,11 @@ public class HFSPScheduler extends TaskScheduler implements
           currentTime);
       switch (localityLevel) {
         case NODE:
-          task = job.obtainNewNodeLocalMapTask(tts, numTaskTrackers,
+          task = job.obtainNewLocalMapTask(tts, numTaskTrackers,
               ttm.getNumberOfUniqueHosts());
           break;
         case RACK:
-          task = job.obtainNewNodeOrRackLocalMapTask(tts, numTaskTrackers,
+          task = job.obtainNewNonLocalMapTask(tts, numTaskTrackers,
               ttm.getNumberOfUniqueHosts());
           break;
         default:

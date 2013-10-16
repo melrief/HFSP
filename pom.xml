@@ -4,8 +4,16 @@
   <groupId>fr.eurecom.dsg.mapreduce</groupId>
   <artifactId>hfsp-scheduler</artifactId>
   <packaging>jar</packaging>
-  <version>1.0</version>
+  <version>1.0-cdh4.4.0</version>
   <name>HFSP Scheduler</name>
+
+  <repositories>
+    <repository>
+      <id>cloudera</id>
+      <url>https://repository.cloudera.com/artifactory/cloudera-repos/</url>
+    </repository>
+  </repositories>
+
   <build>
   <plugins>
     <plugin>
@@ -39,16 +47,27 @@
     </plugin>
   </plugins>
   </build>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>2.0.0-cdh4.4.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-core</artifactId>
-      <version>1.1.2</version>
+      <version>2.0.0-mr1-cdh4.4.0</version>
     </dependency>
     <dependency>
 	<groupId>org.apache.hadoop</groupId>
 	<artifactId>hadoop-test</artifactId>
-	<version>1.1.2</version>
+	<version>2.0.0-mr1-cdh4.4.0</version>
+    </dependency>
+    <dependency>
+	<groupId>org.apache.hadoop</groupId>
+	<artifactId>hadoop-tools</artifactId>
+	<version>2.0.0-mr1-cdh4.4.0</version>
     </dependency>
     <dependency>
       <groupId>log4j</groupId>
