@@ -568,7 +568,7 @@ public class HFSPScheduler extends TaskScheduler implements
 
       LOG.debug(builder.toString());
     } else {
-      LOG.debug(HFSPScheduler.class + " initialized, forcing the first update");
+      LOG.info(HFSPScheduler.class + " initialized, forcing the first update");
     }
 
     // if (!this.mockMode)
