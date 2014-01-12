@@ -41,7 +41,7 @@ Hadoop 1.1.2.
 ## Contributors
 
 - Mario Pastorelli (pastorelli.mario@gmail.com)
-- Antonio Barbuzzi (antoniob82@gmail.com)
+- Antonio Barbuzzi (antonio.barbuzzi@gmail.com)
 
 ## Acknowledgements
 
