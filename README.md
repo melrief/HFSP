@@ -1,7 +1,7 @@
 # Hadoop Fair Sojourn Protocol (HFSP)
 
 The Hadoop Fair Sojourn Protocol Scheduler is a size-based scheduler for
-Hadoop.
+Hadoop. A presentation of the scheduler can be found [here](http://www.slideshare.net/melrief/main-34002097).
 
 ## Compile HFSP
 
@@ -37,6 +37,11 @@ Set HFSP as task scheduler in conf/mapred-site.xml:
 
 HFSP has been developed for the current stable version of Hadoop 1.x, that is 
 Hadoop 1.1.2.
+
+## Papers
+
+- [HFSP: Size-based scheduling for Hadoop](http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=6691554&tag=1)
+- [ Revisiting Size-Based Scheduling with Estimated Job Sizes](http://arxiv.org/abs/1403.5996)
 
 ## Contributors
 
