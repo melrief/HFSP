@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -423,6 +424,15 @@ public class HFSPScheduler extends TaskScheduler implements
         new Configurator<Long, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, Long value) {
             obj.updateInterval = value;
+          }
+        });
+
+    this.configurationManager.addConfiguratorFor(FieldType.String,
+        PREEMPTION_STRATEGY_CLASS_KEY,
+        "the preemption strategy class, must be None or Kill", "None",
+        new Configurator<String, HFSPScheduler>() {
+          protected void set(HFSPScheduler obj, String value) {
+            
           }
         });
 
@@ -1711,7 +1721,8 @@ public class HFSPScheduler extends TaskScheduler implements
    * Try to remove the jobs
    */
   private void cleanSizeBasedQueues() {
-    for (JobInProgress jip : this.jIDToJIP.values()) {
+    List<JobInProgress> jips = new LinkedList<JobInProgress>(this.jIDToJIP.values());
+    for (JobInProgress jip : jips) {
       this.removeJobIfCompleted(jip);
     }
   }
