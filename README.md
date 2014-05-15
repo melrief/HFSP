@@ -3,7 +3,7 @@
 The Hadoop Fair Sojourn Protocol Scheduler is a size-based scheduler for
 Hadoop. A presentation of the scheduler can be found [here](http://www.slideshare.net/melrief/main-34002097).
 
-[![Build Status]( )]
+[![Build Status](https://travis-ci.org/melrief/HFSP.svg?branch=master)](https://travis-ci.org/melrief/HFSP)
 
 ## Compile HFSP
 
