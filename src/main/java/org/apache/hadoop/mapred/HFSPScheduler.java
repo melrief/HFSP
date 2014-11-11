@@ -429,10 +429,11 @@ public class HFSPScheduler extends TaskScheduler implements
 
     this.configurationManager.addConfiguratorFor(FieldType.String,
         PREEMPTION_STRATEGY_CLASS_KEY,
-        "the preemption strategy class, must be None or Kill", "None",
+        "the preemption strategy class",
+        "org.apache.hadoop.mapred.NoPreemption",
         new Configurator<String, HFSPScheduler>() {
           protected void set(HFSPScheduler obj, String value) {
-            
+            //
           }
         });
 
@@ -463,7 +464,7 @@ public class HFSPScheduler extends TaskScheduler implements
   public synchronized void start() throws IOException {
     super.start();
 
-    this.preemptionStrategy = this.loadPreemptionStrategyInstance(conf);
+    this.preemptionStrategy = HFSPScheduler.loadPreemptionStrategyInstance(conf);
 
     // Configuration conf = getConf();
     //
@@ -585,7 +586,7 @@ public class HFSPScheduler extends TaskScheduler implements
     this.update();
   }
 
-  private PreemptionStrategy loadPreemptionStrategyInstance(Configuration conf) {
+  private static PreemptionStrategy loadPreemptionStrategyInstance(Configuration conf) {
     Class<? extends PreemptionStrategy> preemptionStrategyClass = conf
         .getClass(PREEMPTION_STRATEGY_CLASS_KEY, NoPreemption.class,
             PreemptionStrategy.class);
