@@ -466,24 +466,6 @@ public class HFSPScheduler extends TaskScheduler implements
 
     this.preemptionStrategy = HFSPScheduler.loadPreemptionStrategyInstance(conf);
 
-    // Configuration conf = getConf();
-    //
-    // this.numSlotsForMapTrain = conf.getInt(TRAIN_MAP_SLOTS_KEYNAME, 0);
-    // this.numSlotsForReduceTrain = conf.getInt(TRAIN_REDUCE_SLOTS_KEYNAME, 0);
-    // this.numMapTrainSlotsForJob = conf.getInt(TRAINER_MIN_MAPS_KEYNAME, 2);
-    // this.numReduceTrainSlotsForJob = conf
-    // .getInt(TRAINER_MIN_REDUCES_KEYNAME, 2);
-
-    // this.delayEnabled = conf.getBoolean(DELAY_KEYNAME, false);
-    // this.initialMapTaskDuration = conf.getLong(INITIAL_MAP_DURATION, 60000l);
-    // this.initialReduceTaskDuration = conf.getLong(INITIAL_REDUCE_DURATION,
-    // 60000l);
-    // this.durationModifierMap = conf.getFloat(DURATION_MODIFIER_MAP, 1.0f);
-    // this.durationModifierReduce = conf.getFloat(DURATION_MODIFIER_REDUCE,
-    // 1.0f);
-    // this.numTasksForMapTrain = conf.getInt(TRAINER_MIN_MAPS_KEYNAME, 2);
-    // this.numTasksForReduceTrain = conf.getInt(TRAIN_REDUCE_SLOTS_KEYNAME, 2);
-
     // lookup utilities
     this.taskTrackers = new HashMap<String, TaskTrackerStatus>();
     this.jIDToJIP = new HashMap<JobID, JobInProgress>();
